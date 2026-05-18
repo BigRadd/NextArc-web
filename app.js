@@ -6,7 +6,7 @@
 
 // ─── CONFIGURACIÓN ────────────────────────────
 const API_KEY  = "dev-anime1v-key";
-const BASE_URL = "https://nextarc.onrender.com/";
+const BASE_URL = "https://nextarc.onrender.com/api/v1/anime";
 const JIKAN    = "https://api.jikan.moe/v4";
 
 const apiHeaders = {
