@@ -798,15 +798,41 @@ async function verDetallesAnime(animeId) {
 }
 
 // ─── BÚSQUEDA ─────────────────────────────────
+// ─── BÚSQUEDA CORREGIDA (Pinta todos los resultados) ──────────
 async function buscarPorNombreYVer(nombre) {
   try {
     showToast(`Buscando "${nombre}"...`);
-    const res  = await fetch(`${JIKAN}/anime?q=${encodeURIComponent(nombre)}&limit=1`);
+    
+    // 1. Quitamos el &limit=1 para que traiga todo lo relacionado (Series, películas, ovas)
+    const res  = await fetch(`${JIKAN}/anime?q=${encodeURIComponent(nombre)}`);
     const data = await res.json();
+    
     if (data.data?.length) {
-      const found = data.data[0];
-      if (!localAnimeData.find(a => a.mal_id === found.mal_id)) localAnimeData.push(found);
-      verDetallesAnime(found.mal_id);
+      // 2. Registramos los animes nuevos en el catálogo local para que no rompa al darles clic
+      data.data.forEach(found => {
+        if (!localAnimeData.find(a => a.mal_id === found.mal_id)) {
+          localAnimeData.push(found);
+        }
+      });
+      
+      // 3. Mandamos al usuario a la vista de inicio (Home)
+      mostrarVista("homeView");
+      
+      // 4. Ocultamos el Hero Banner y las pestañas de filtro para que
+      //    los resultados suban limpiamente al primer plano
+      const heroBanner = document.getElementById("heroBanner");
+      if (heroBanner) heroBanner.style.display = "none";
+      document.querySelectorAll(".nav-tab").forEach(tab => {
+        tab.style.display = "none";
+      });
+      
+      // 5. Cambiamos el título del catálogo para avisar qué se buscó
+      const titleEl = document.getElementById("catalogTitle");
+      if (titleEl) titleEl.textContent = `Resultados para: "${nombre}"`;
+      
+      // 6. Pintamos la lista completa de resultados en tu grid existente
+      renderGrid(data.data);
+      
     } else {
       showToast("No se encontraron resultados", "error");
     }
@@ -831,14 +857,34 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Botón volver
-  document.getElementById("backToHomeBtn").addEventListener("click", () => mostrarVista("homeView"));
+  document.getElementById("backToHomeBtn").addEventListener("click", () => {
+    const heroBanner = document.getElementById("heroBanner");
+    if (heroBanner && heroBanner.style.display === "none") heroBanner.style.display = "block";
+    document.querySelectorAll(".nav-tab").forEach(tab => {
+      if (tab.style.display === "none") tab.style.display = "";
+    });
+    mostrarVista("homeView");
+  });
 
   // Logo
-  document.getElementById("brandLogo").addEventListener("click", () => mostrarVista("homeView"));
+  document.getElementById("brandLogo").addEventListener("click", () => {
+    const heroBanner = document.getElementById("heroBanner");
+    if (heroBanner && heroBanner.style.display === "none") heroBanner.style.display = "block";
+    document.querySelectorAll(".nav-tab").forEach(tab => {
+      if (tab.style.display === "none") tab.style.display = "";
+    });
+    mostrarVista("homeView");
+  });
 
   // Sidebar navegación
   document.getElementById("sideHome").addEventListener("click", e => {
-    e.preventDefault(); mostrarVista("homeView");
+    e.preventDefault();
+    const heroBanner = document.getElementById("heroBanner");
+    if (heroBanner && heroBanner.style.display === "none") heroBanner.style.display = "block";
+    document.querySelectorAll(".nav-tab").forEach(tab => {
+      if (tab.style.display === "none") tab.style.display = "";
+    });
+    mostrarVista("homeView");
   });
   document.getElementById("sideAiring").addEventListener("click", e => {
     e.preventDefault(); loadAiringView();
