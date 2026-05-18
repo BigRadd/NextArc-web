@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NrxtArc — Tu plataforma de anime</title>
+    <link rel="icon" href="data:," />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- ═══════════════════════════════════════════
+       HEADER
+  ═══════════════════════════════════════════ -->
+    <header class="header">
+      <div class="logo" id="brandLogo">
+        <span class="logo-text">Next<span class="logo-accent">Arc</span></span>
+      </div>
+
+      <nav class="nav-tabs">
+        <a href="#" class="nav-tab active" data-filter="tv" id="navSeries"
+          >Series</a
+        >
+        <a href="#" class="nav-tab" data-filter="movie" id="navMovies"
+          >Películas</a
+        >
+      </nav>
+
+      <div class="header-right">
+        <div class="search-bar">
+          <i class="fas fa-search search-icon"></i>
+          <input
+            type="text"
+            class="search-input"
+            id="globalSearchInput"
+            placeholder="Buscar anime..."
+          />
+        </div>
+        <div class="user-actions">
+          <button class="icon-btn" id="btnSettingsToggle" title="Configuración">
+            <i class="fas fa-cog"></i>
+          </button>
+          <button
+            class="icon-btn user-icon"
+            id="btnAccountToggle"
+            title="Mi Cuenta"
+          >
+            <i class="fas fa-user-circle"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ═══════════════════════════════════════════
+       LAYOUT PRINCIPAL
+  ═══════════════════════════════════════════ -->
+    <div class="main-container">
+      <!-- SIDEBAR LEFT -->
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">Menú</h3>
+          <a href="#" class="sidebar-item active" id="sideHome"
+            ><i class="fas fa-home"></i> Inicio</a
+          >
+          <a href="#" class="sidebar-item" id="sideAiring"
+            ><i class="fas fa-tv"></i> En Emisión</a
+          >
+          <a href="#" class="sidebar-item" id="sideCalendar"
+            ><i class="fas fa-calendar-alt"></i> Calendario</a
+          >
+        </div>
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">Biblioteca</h3>
+          <a href="#" class="sidebar-item" id="sideFavorites"
+            ><i class="fas fa-star"></i> Favoritos</a
+          >
+        </div>
+      </aside>
+
+      <!-- VISTA: HOME -->
+      <main class="content" id="homeView">
+        <!-- Hero Banner Dinámico -->
+        <div class="hero-section" id="heroBanner">
+          <!-- Los slides se generan por JS -->
+          <div class="hero-overlay">
+            <div class="hero-content" id="heroContent">
+              <span class="hero-badge" id="heroBadge">TOP ANIME</span>
+              <h1 class="hero-title" id="heroTitle">Cargando...</h1>
+              <h2 class="hero-subtitle" id="heroSubtitle"></h2>
+              <p class="hero-description" id="heroDesc"></p>
+              <div class="hero-meta">
+                <span class="rating" id="heroRating"></span>
+                <span id="heroEps"></span>
+                <span id="heroType"></span>
+              </div>
+              <div class="hero-buttons">
+                <button class="btn btn-primary" id="btnPlayHero">
+                  <i class="fas fa-play"></i> VER DETALLES
+                </button>
+                <button class="btn btn-secondary" id="btnFavHero">
+                  <i class="far fa-heart"></i> Favorito
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="hero-dots" id="heroDots"></div>
+        </div>
+
+        <!-- Catálogo Principal -->
+        <section class="section">
+          <div class="section-header">
+            <h2 class="section-title" id="catalogTitle">
+              Animes Más Populares
+            </h2>
+            <span
+              id="catalogCount"
+              style="color: var(--text-muted); font-size: 0.85rem"
+            ></span>
+          </div>
+          <div class="anime-grid" id="animeGrid">
+            <!-- Skeletons de carga -->
+            <div class="anime-card skeleton">
+              <div class="anime-poster"></div>
+              <div class="anime-info">
+                <div
+                  style="
+                    height: 14px;
+                    background: var(--bg-elevated);
+                    border-radius: 4px;
+                    margin-bottom: 8px;
+                  "
+                ></div>
+                <div
+                  style="
+                    height: 10px;
+                    background: var(--bg-elevated);
+                    border-radius: 4px;
+                    width: 60%;
+                  "
+                ></div>
+              </div>
+            </div>
+            <div class="anime-card skeleton">
+              <div class="anime-poster"></div>
+              <div class="anime-info">
+                <div
+                  style="
+                    height: 14px;
+                    background: var(--bg-elevated);
+                    border-radius: 4px;
+                    margin-bottom: 8px;
+                  "
+                ></div>
+                <div
+                  style="
+                    height: 10px;
+                    background: var(--bg-elevated);
+                    border-radius: 4px;
+                    width: 60%;
+                  "
+                ></div>
+              </div>
+            </div>
+            <div class="anime-card skeleton">
+              <div class="anime-poster"></div>
+              <div class="anime-info">
+                <div
+                  style="
+                    height: 14px;
+                    background: var(--bg-elevated);
+                    border-radius: 4px;
+                    margin-bottom: 8px;
+                  "
+                ></div>
+                <div
+                  style="
+                    height: 10px;
+                    background: var(--bg-elevated);
+                    border-radius: 4px;
+                    width: 60%;
+                  "
+                ></div>
+              </div>
+            </div>
+            <div class="anime-card skeleton">
+              <div class="anime-poster"></div>
+              <div class="anime-info">
+                <div
+                  style="
+                    height: 14px;
+                    background: var(--bg-elevated);
+                    border-radius: 4px;
+                    margin-bottom: 8px;
+                  "
+                ></div>
+                <div
+                  style="
+                    height: 10px;
+                    background: var(--bg-elevated);
+                    border-radius: 4px;
+                    width: 60%;
+                  "
+                ></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- VISTA: EN EMISIÓN -->
+      <main class="content" id="airingView" style="display: none">
+        <div class="section-header" style="margin-bottom: 1.5rem">
+          <h2 class="section-title">
+            <i
+              class="fas fa-satellite-dish"
+              style="color: var(--accent); margin-right: 0.5rem"
+            ></i
+            >En Emisión Ahora
+          </h2>
+          <span id="airingStatus" class="status-indicator">Cargando...</span>
+        </div>
+        <div class="anime-grid" id="airingGrid"></div>
+      </main>
+
+      <!-- VISTA: CALENDARIO -->
+      <main class="content" id="calendarView" style="display: none">
+        <div class="section-header" style="margin-bottom: 1.5rem">
+          <h2 class="section-title">
+            <i
+              class="fas fa-calendar-alt"
+              style="color: var(--accent); margin-right: 0.5rem"
+            ></i
+            >Calendario Semanal 2026
+          </h2>
+          <span id="calendarStatus" class="status-indicator">Cargando...</span>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+      </main>
+
+      <!-- VISTA: FAVORITOS -->
+      <main class="content" id="favoritesView" style="display: none">
+        <div class="section-header" style="margin-bottom: 1.5rem">
+          <h2 class="section-title">
+            <i
+              class="fas fa-star"
+              style="color: var(--warning); margin-right: 0.5rem"
+            ></i
+            >Mis Favoritos
+          </h2>
+        </div>
+        <div class="fav-grid" id="favGrid">
+          <div class="empty-state" style="grid-column: 1/-1">
+            <i class="far fa-star"></i>
+            <p>
+              Aún no tienes favoritos.<br />Busca animes y agrégarlos con el
+              botón <i class="far fa-heart"></i>.
+            </p>
+          </div>
+        </div>
+      </main>
+
+      <!-- VISTA: DETALLES -->
+      <main class="content" id="detailsView" style="display: none">
+        <button
+          class="btn btn-secondary"
+          id="backToHomeBtn"
+          style="margin-bottom: 1.5rem"
+        >
+          <i class="fas fa-arrow-left"></i> Volver al Catálogo
+        </button>
+
+        <div class="details-container" id="detailsContainer">
+          <div class="details-header">
+            <div class="details-poster" id="detPoster"></div>
+            <div class="details-info">
+              <h1 class="details-title" id="detTitle">Buscando...</h1>
+              <div class="details-meta" id="detMeta"></div>
+              <p
+                id="detSynopsis"
+                style="
+                  line-height: 1.65;
+                  color: var(--text-secondary);
+                  max-width: 750px;
+                  font-size: 0.92rem;
+                "
+              ></p>
+              <div
+                id="detGenres"
+                style="
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 0.4rem;
+                  margin-top: 0.25rem;
+                "
+              ></div>
+              <div
+                style="
+                  display: flex;
+                  gap: 0.75rem;
+                  margin-top: 0.5rem;
+                  flex-wrap: wrap;
+                "
+              >
+                <button
+                  class="btn btn-accent"
+                  id="detFavBtn"
+                  onclick="toggleFavoriteFromDetail()"
+                >
+                  <i class="far fa-heart"></i> Agregar a Favoritos
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <section class="section">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.75rem;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+              "
+            >
+              <h2 class="section-title" style="margin-bottom: 0">
+                Opciones de Idioma
+              </h2>
+              <span id="statusIndicator" class="status-indicator">
+                <i class="fas fa-satellite-dish"></i> Sincronizando...
+              </span>
+            </div>
+
+            <div class="lang-selector">
+              <button
+                class="lang-btn active"
+                id="btnSub"
+                onclick="cambiarIdioma('sub')"
+              >
+                <i class="fas fa-closed-captioning"></i> SUB
+              </button>
+              <button
+                class="lang-btn"
+                id="btnDub"
+                onclick="cambiarIdioma('dub')"
+              >
+                <i class="fas fa-microphone"></i> DUB Latino
+              </button>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.75rem;
+              "
+            >
+              <h2 class="section-title" style="margin-bottom: 0">
+                Lista de Episodios
+              </h2>
+              <span
+                id="epCount"
+                style="color: var(--text-muted); font-size: 0.85rem"
+              ></span>
+            </div>
+            <div class="episode-grid" id="episodeGrid"></div>
+          </section>
+        </div>
+      </main>
+
+      <!-- SIDEBAR RIGHT -->
+      <aside class="sidebar-right">
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">Recomendados</h3>
+          <div class="popular-item" data-search="Black Clover">
+            <div
+              class="popular-poster"
+              style="
+                background-image: url(&quot;https://m.media-amazon.com/images/M/MV5BZmZkZjNhMWMtM2U0Mi00MjdlLTk3NmMtMTMwZjgwOTJmODMzXkEyXkFqcGc@._V1_FMjpg_UX1000_.jpg&quot;);
+              "
+            ></div>
+            <div class="popular-info">
+              <h4>Black Clover</h4>
+              <p>4 Temporadas · TV</p>
+              <p class="pop-rating"><i class="fas fa-star"></i> 8.1</p>
+            </div>
+          </div>
+          <div class="popular-item" data-search="Haikyuu">
+            <div
+              class="popular-poster"
+              style="
+                background-image: url(&quot;https://m.media-amazon.com/images/M/MV5BZWFiNmRkY2MtN2ViZC00MzhhLWI0YWYtNzVlZWFmDI3ZjE3XkEyXkFqcGc@._V1_.jpg&quot;);
+              "
+            ></div>
+            <div class="popular-info">
+              <h4>Haikyuu!!</h4>
+              <p>4 Temporadas · TV</p>
+              <p class="pop-rating"><i class="fas fa-star"></i> 8.7</p>
+            </div>
+          </div>
+          <div
+            class="popular-item"
+            data-search="Fullmetal Alchemist Brotherhood"
+          >
+            <div
+              class="popular-poster"
+              style="
+                background-image: url(&quot;https://m.media-amazon.com/images/M/MV5BZmEzN2YzOTItMDI5MS00MGU4LWI1NWQtOTg5ZThhNGQwYTEzXkEyXkFqcGdeQXVyNTA4NjY1MjY@._V1_.jpg&quot;);
+              "
+            ></div>
+            <div class="popular-info">
+              <h4>FMA: Brotherhood</h4>
+              <p>64 eps · TV</p>
+              <p class="pop-rating"><i class="fas fa-star"></i> 9.1</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">En Emisión</h3>
+          <div class="airing-list" id="sidebarAiringList">
+            <div
+              style="
+                color: var(--text-muted);
+                font-size: 0.8rem;
+                padding: 0.5rem;
+              "
+            >
+              Cargando...
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+       VIDEO MODAL
+  ═══════════════════════════════════════════ -->
+    <div
+      id="videoModal"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.97);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        padding: 20px;
+      "
+    >
+      <button
+        id="closeModal"
+        style="
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          background: var(--danger);
+          color: white;
+          border: none;
+          padding: 10px 22px;
+          border-radius: 5px;
+          cursor: pointer;
+          font-weight: bold;
+          z-index: 10000;
+          font-family: &quot;Nunito&quot;, sans-serif;
+        "
+      >
+        <i class="fas fa-times"></i> Cerrar
+      </button>
+      <h2
+        id="modalTitle"
+        style="
+          margin-bottom: 15px;
+          color: var(--accent);
+          text-align: center;
+          max-width: 80%;
+          font-family: &quot;Syne&quot;, sans-serif;
+        "
+      ></h2>
+      <div class="modal-tabs" style="width: 340px">
+        <button
+          id="tabStream"
+          class="modal-tab-btn active"
+          onclick="setModalMode('stream')"
+        >
+          <i class="fas fa-play"></i> Ver Online
+        </button>
+        <button
+          id="tabDownload"
+          class="modal-tab-btn"
+          onclick="setModalMode('download')"
+        >
+          <i class="fas fa-download"></i> Descargar
+        </button>
+      </div>
+      <div class="server-container" id="modalServers"></div>
+      <iframe
+        id="videoPlayer"
+        src=""
+        width="80%"
+        height="55%"
+        allowfullscreen
+        style="
+          border: 2px solid var(--accent);
+          border-radius: 10px;
+          background: black;
+        "
+      ></iframe>
+      <div
+        id="downloadActionBox"
+        style="
+          display: none;
+          margin-top: 30px;
+          text-align: center;
+          background: var(--bg-elevated);
+          padding: 25px;
+          border-radius: 8px;
+          border: 1px dashed var(--accent);
+          width: 60%;
+        "
+      >
+        <p
+          style="
+            font-size: 1rem;
+            margin-bottom: 15px;
+            color: var(--text-secondary);
+          "
+        >
+          Elige un servidor arriba y haz clic para descargar:
+        </p>
+        <a
+          id="downloadDirectBtn"
+          href="#"
+          target="_blank"
+          class="btn btn-accent"
+          style="font-size: 1.1rem; padding: 12px 28px"
+        >
+          <i class="fas fa-cloud-download-alt"></i> Descargar .MP4
+        </a>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+       SETTINGS MODAL
+  ═══════════════════════════════════════════ -->
+    <div class="modal-overlay" id="settingsModal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2>
+            <i
+              class="fas fa-cog"
+              style="color: var(--accent); margin-right: 0.5rem"
+            ></i>
+            Configuración
+          </h2>
+          <button
+            class="modal-close"
+            onclick="
+              document.getElementById('settingsModal').classList.remove('open')
+            "
+          >
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <!-- Tema -->
+          <div class="settings-group">
+            <div class="settings-label">Apariencia</div>
+            <div class="toggle-row">
+              <div>
+                <div class="toggle-label">Modo Claro</div>
+                <div class="toggle-desc">Cambiar entre tema oscuro y claro</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="themeToggle" />
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Idioma Reproductor -->
+          <div class="settings-group">
+            <div class="settings-label">Reproducción</div>
+            <div class="toggle-row">
+              <div>
+                <div class="toggle-label">Idioma por Defecto</div>
+                <div class="toggle-desc">Preferencia al abrir un anime</div>
+              </div>
+            </div>
+            <select class="settings-select" id="defaultLangSelect">
+              <option value="sub">Subtitulado (SUB)</option>
+              <option value="dub">Doblaje Latino (DUB)</option>
+            </select>
+          </div>
+
+          <!-- Servidor preferido -->
+          <div class="settings-group">
+            <div class="settings-label">Servidor Preferido</div>
+            <select class="settings-select" id="preferredServerSelect">
+              <option value="0">Automático (más rápido)</option>
+              <option value="1">Servidor 1 — Principal</option>
+              <option value="2">Servidor 2 — Alternativo</option>
+              <option value="3">Servidor 3 — Respaldo</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+       ACCOUNT MODAL
+  ═══════════════════════════════════════════ -->
+    <div class="modal-overlay" id="accountModal">
+      <div class="modal-box" style="max-width: 520px">
+        <div class="modal-header">
+          <h2>
+            <i
+              class="fas fa-user-circle"
+              style="color: var(--danger); margin-right: 0.5rem"
+            ></i>
+            Mi Cuenta
+          </h2>
+          <button
+            class="modal-close"
+            onclick="
+              document.getElementById('accountModal').classList.remove('open')
+            "
+          >
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <!-- Tabs sin sesión -->
+        <div id="authSection">
+          <div class="account-tabs">
+            <button
+              class="account-tab-btn active"
+              onclick="switchAuthTab('login')"
+            >
+              Iniciar Sesión
+            </button>
+            <button class="account-tab-btn" onclick="switchAuthTab('register')">
+              Registrarse
+            </button>
+          </div>
+          <div class="modal-body">
+            <!-- Login -->
+            <div class="account-panel active" id="panelLogin">
+              <div class="input-group">
+                <label class="input-label">Usuario</label>
+                <input
+                  type="text"
+                  class="input-field"
+                  id="loginUser"
+                  placeholder="Tu nombre de usuario"
+                />
+              </div>
+              <div class="input-group">
+                <label class="input-label">Contraseña</label>
+                <input
+                  type="password"
+                  class="input-field"
+                  id="loginPass"
+                  placeholder="••••••••"
+                />
+              </div>
+              <button
+                class="btn btn-accent"
+                style="width: 100%"
+                onclick="doLogin()"
+              >
+                <i class="fas fa-sign-in-alt"></i> Entrar
+              </button>
+            </div>
+            <!-- Register -->
+            <div class="account-panel" id="panelRegister">
+              <div class="input-group">
+                <label class="input-label">Nombre de Usuario</label>
+                <input
+                  type="text"
+                  class="input-field"
+                  id="regUser"
+                  placeholder="Elige un nombre único"
+                />
+              </div>
+              <div class="input-group">
+                <label class="input-label">Contraseña</label>
+                <input
+                  type="password"
+                  class="input-field"
+                  id="regPass"
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </div>
+              <button
+                class="btn btn-accent"
+                style="width: 100%"
+                onclick="doRegister()"
+              >
+                <i class="fas fa-user-plus"></i> Crear Cuenta
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sección con sesión activa -->
+        <div id="userSection" style="display: none">
+          <div class="account-tabs">
+            <button
+              class="account-tab-btn active"
+              onclick="switchUserTab('favs')"
+            >
+              Favoritos
+            </button>
+            <button class="account-tab-btn" onclick="switchUserTab('profile')">
+              Perfil
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="account-panel active" id="panelFavs">
+              <div class="fav-grid" id="modalFavGrid">
+                <div class="empty-state" style="grid-column: 1/-1">
+                  <i class="far fa-star"></i>
+                  <p>No tienes favoritos aún.</p>
+                </div>
+              </div>
+            </div>
+            <div class="account-panel" id="panelProfile">
+              <div style="text-align: center; padding: 1rem 0">
+                <i
+                  class="fas fa-user-circle"
+                  style="font-size: 3.5rem; color: var(--accent)"
+                ></i>
+                <h3
+                  id="profileUsername"
+                  style="
+                    font-family: &quot;Syne&quot;, sans-serif;
+                    margin-top: 0.75rem;
+                    font-size: 1.3rem;
+                  "
+                ></h3>
+                <p
+                  style="
+                    color: var(--text-muted);
+                    font-size: 0.85rem;
+                    margin-top: 0.25rem;
+                  "
+                  id="profileFavCount"
+                ></p>
+              </div>
+              <div class="section-divider"></div>
+              <button
+                class="btn btn-secondary"
+                style="width: 100%"
+                onclick="doLogout()"
+              >
+                <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast notification -->
+    <div class="toast" id="toastMsg"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
