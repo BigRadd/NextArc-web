@@ -1781,7 +1781,7 @@ async function verDetallesAnime(animeId) {
   // Poblar UI básica
   document.getElementById("detPoster").style.backgroundImage = `url('${anime.images.jpg.large_image_url || anime.images.jpg.image_url}')`;
   document.getElementById("detTitle").textContent     = anime.title;
-  document.getElementById("detSynopsis").textContent  = "Conectando con los scrapers...";
+  document.getElementById("detSynopsis").textContent  = "Cargando...";
 
   const meta = document.getElementById("detMeta");
   meta.innerHTML = [
