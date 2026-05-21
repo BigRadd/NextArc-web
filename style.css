@@ -1101,3 +1101,452 @@ body.light-mode .logo-text {
   .hero-title { font-size: 1.3rem; }
   .hero-buttons .btn:last-child { display: none; }
 }
+/* ═══════════════════════════════════════════════════
+   PLAYER VIEW — Layout dos columnas premium
+   NextArc · Dark Mode High-Contrast
+   ═══════════════════════════════════════════════════ */
+
+/* ─── PLAYER PAGE ROOT ─────────────────────────── */
+.player-view {
+  padding: 0 !important;
+  background: var(--bg-base);
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 68px);
+}
+
+/* Barra superior de navegación dentro del player */
+.player-back-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1rem;
+}
+
+.player-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── GRID DE DOS COLUMNAS ──────────────────────── */
+.player-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  padding: 0 2rem 2rem;
+  align-items: start;
+  flex: 1;
+}
+
+/* ─── COLUMNA PRINCIPAL ─────────────────────────── */
+.player-main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+/* ─── VIDEO WRAPPER ─────────────────────────────── */
+.player-video-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #080810;
+  border-radius: 16px;
+  overflow: hidden;
+  /* Profundidad premium: sombra oscura + resplandor de acento */
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.055),
+    0 12px 48px rgba(0,0,0,0.75),
+    0 0 80px rgba(0, 212, 170, 0.08);
+}
+
+/* Estado de carga */
+.player-video-loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: #080810;
+  z-index: 2;
+}
+.player-video-loader.hidden { display: none; }
+
+.player-loader-spinner {
+  width: 36px; height: 36px;
+  border: 3px solid rgba(0,212,170,0.15);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: playerSpin 0.8s linear infinite;
+}
+@keyframes playerSpin { to { transform: rotate(360deg); } }
+
+.player-loader-text {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-family: 'Nunito', sans-serif;
+}
+
+/* ─── BLOQUE DE METADATA ────────────────────────── */
+.player-meta-block {
+  padding: 18px 2px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Nivel 1 — Título + Lang switch */
+.player-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.player-anime-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.4px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.player-ep-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+  font-weight: 600;
+}
+
+.player-lang-switch {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+/* Nivel 2 — Acciones secundarias */
+.player-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.player-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.player-action-btn:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+.player-action-btn.active {
+  color: var(--accent);
+  border-color: rgba(0,212,170,0.35);
+  background: rgba(0,212,170,0.07);
+}
+.player-action-btn i { font-size: 0.88rem; }
+
+.player-action-sep {
+  width: 1px; height: 18px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+/* Nivel 3 — Sección de servidores */
+.player-server-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player-server-mode-tabs {
+  display: flex;
+  gap: 6px;
+  background: var(--bg-elevated);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  width: fit-content;
+}
+
+.player-mode-tab {
+  padding: 7px 18px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 0.83rem;
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.player-mode-tab.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.35);
+}
+
+.player-server-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+/* Fila de tabs de servidor */
+.player-server-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Botones de servidor — rediseño completo */
+.player-server-tabs .server-btn {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: var(--transition);
+}
+.player-server-tabs .server-btn:hover:not(.active) {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+.player-server-tabs .server-btn.active {
+  background: rgba(0,212,170,0.1);
+  border-color: rgba(0,212,170,0.5);
+  color: var(--accent);
+  box-shadow: 0 0 14px rgba(0,212,170,0.12);
+}
+
+/* Box de descarga */
+.player-download-box {
+  margin-top: 4px;
+  padding: 1.25rem 1.5rem;
+  background: var(--bg-elevated);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.player-download-box p {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+/* ─── SIDEBAR DE EPISODIOS ──────────────────────── */
+.player-sidebar {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* Altura = video (aspect-ratio 16/9) + meta-block estimado */
+  /* Se alinea al start del grid y usa sticky para acompañar el scroll */
+  position: sticky;
+  top: calc(68px + 16px); /* header height + gap */
+  max-height: calc(100vh - 68px - 32px);
+}
+
+.player-sidebar-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.player-sidebar-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-primary);
+}
+
+.player-sidebar-count {
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* Lista de episodios con scroll independiente */
+.player-ep-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-elevated) transparent;
+}
+.player-ep-list::-webkit-scrollbar { width: 4px; }
+.player-ep-list::-webkit-scrollbar-track { background: transparent; }
+.player-ep-list::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 2px; }
+
+/* Tarjetas horizontales de episodio */
+.ep-card-sidebar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: var(--transition);
+  background: transparent;
+}
+.ep-card-sidebar:hover {
+  background: var(--bg-elevated);
+  border-color: var(--border);
+}
+.ep-card-sidebar.active {
+  background: rgba(0,212,170,0.07);
+  border-color: rgba(0,212,170,0.3);
+}
+
+/* Miniatura de la tarjeta */
+.ep-sidebar-thumb {
+  width: 76px;
+  height: 50px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+  background: var(--bg-elevated);
+}
+.ep-sidebar-thumb img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.ep-sidebar-thumb .ep-thumb-gradient {
+  width: 100%; height: 100%;
+  display: block;
+}
+.ep-card-sidebar.active .ep-sidebar-thumb::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* Info de la tarjeta */
+.ep-sidebar-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ep-sidebar-num {
+  font-size: 0.67rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+.ep-card-sidebar.active .ep-sidebar-num { color: var(--accent); }
+
+.ep-sidebar-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+.ep-card-sidebar.active .ep-sidebar-title { color: var(--text-primary); }
+
+.ep-sidebar-date {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.ep-now-playing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+.ep-now-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: nowPulse 1.4s ease-in-out infinite;
+}
+@keyframes nowPulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
+
+/* ─── OVERRIDES: el #episodeGrid en player usa flex sidebar, no grid ── */
+#playerView #episodeGrid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  grid-template-columns: none !important;
+  padding: 0 !important;
+}
+
+/* ─── RESPONSIVE ────────────────────────────────── */
+@media (max-width: 1024px) {
+  .player-layout {
+    grid-template-columns: 1fr;
+  }
+  .player-sidebar {
+    position: static;
+    max-height: 380px;
+  }
+}
+
+@media (max-width: 768px) {
+  .player-layout { padding: 0 1rem 1.5rem; gap: 14px; }
+  .player-video-wrap { border-radius: 10px; }
+  .player-anime-title { font-size: 1.1rem; }
+  .player-sidebar { max-height: 340px; }
+}
