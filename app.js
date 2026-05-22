@@ -2176,6 +2176,20 @@ async function verDetallesAnime(animeId) {
   if (epGrid) epGrid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;"><i class="fas fa-spinner fa-spin"></i> Conectando...</p>`;
 
   mostrarVista("detailsView");
+  // ─── Toggle Leer más / Leer menos ────────────────
+const synopsisEl = document.getElementById("detSynopsis");
+const toggleBtn  = document.getElementById("btnToggleSynopsis");
+
+if (synopsisEl && toggleBtn) {
+  // Reiniciar estado al abrir una nueva ficha
+  synopsisEl.classList.add("sinopsis-recortada");
+  toggleBtn.textContent = "Leer más";
+
+  toggleBtn.onclick = function () {
+    const recortada = synopsisEl.classList.toggle("sinopsis-recortada");
+    toggleBtn.textContent = recortada ? "Leer más" : "Leer menos";
+  };
+}
   updateFavBtn();
   updateFollowBtn();
 
