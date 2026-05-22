@@ -1751,3 +1751,107 @@ body.light-mode .logo-text {
   font-weight: 700 !important;
 }
 
+/* ═══════════════════════════════════════════════════
+   OPTIMIZACIONES DE RENDIMIENTO MÓVIL
+   ═══════════════════════════════════════════════════ */
+
+/* ── Eliminar delay táctil de 300ms globalmente ── */
+body,
+button, .btn, .server-btn, .btn-leer-mas,
+.anime-card, .ep-card-premium, .ep-card-sidebar,
+.sidebar-item, .hero-btn, .modal-tab,
+[role="button"], [onclick] {
+  touch-action: manipulation;
+}
+
+/* ── Scroll fluido en contenedores con deslizamiento horizontal ── */
+.sidebar,
+.player-ep-list,
+.anime-grid,
+.episode-grid-container,
+.episodeGrid {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* ── Aceleración por GPU en tarjetas y transiciones ── */
+.anime-card,
+.ep-card-premium,
+.ep-card-sidebar,
+.hero-section,
+.modal-box {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+/* ── Transiciones de vistas usando SOLO transform/opacity (sin left/width) ── */
+.view {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  opacity: 0;
+  transform: translate3d(0, 12px, 0);
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  will-change: opacity, transform;
+}
+.view.active {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  pointer-events: auto;
+}
+
+/* ── Sidebar móvil: animación GPU (reemplaza cualquier left/margin animado) ── */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translate3d(0, 0, 0);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    will-change: transform, opacity;
+  }
+
+  /* ── Scroll horizontal del nav móvil ultra fluido ── */
+  .sidebar {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+  }
+
+  .sidebar-item {
+    scroll-snap-align: start;
+    touch-action: manipulation;
+  }
+}
+
+/* ── Mensaje de episodio no disponible ── */
+.player-unavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  min-height: 280px;
+}
+.player-unavailable i {
+  font-size: 2.8rem;
+  color: var(--warning);
+  opacity: 0.7;
+}
+.player-unavailable p {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  max-width: 380px;
+  color: var(--text-muted);
+}
+.player-unavailable strong {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
