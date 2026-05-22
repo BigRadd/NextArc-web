@@ -1707,6 +1707,33 @@ body.light-mode .logo-text {
   color: #8080a8 !important;
 }
 
+/* ─── SINOPSIS RECORTADA / LEER MÁS ─────────────── */
+.sinopsis-recortada {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.btn-leer-mas {
+  display: inline-block;
+  margin-top: 0.5rem;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: opacity 0.2s ease;
+}
+
+.btn-leer-mas:hover {
+  opacity: 0.75;
+}
+
 /* ── Relaciones temporadas ── */
 .rel-card-title {
   font-size: 0.82rem !important;
@@ -1723,3 +1750,4 @@ body.light-mode .logo-text {
   color: #9090b8 !important;
   font-weight: 700 !important;
 }
+
