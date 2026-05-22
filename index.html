@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NextArc — Tu plataforma de anime</title>
-    <link rel="icon" type="image/jpeg" href="favicon.jpg" />
+    <link rel="icon" type="image/png" href="favicon.jpeg" />
     <link rel="icon" href="data:," />
     <link
       rel="stylesheet"
@@ -431,6 +431,10 @@
                   margin-top: 0.25rem;
                 "
               ></div>
+
+              <!-- Sección de temporadas relacionadas (precuela / secuela) — se rellena por JS -->
+              <div id="relacionesContainer" style="display: none"></div>
+
               <div
                 style="
                   display: flex;
@@ -512,6 +516,8 @@
                 style="color: var(--text-muted); font-size: 0.85rem"
               ></span>
             </div>
+            <!-- Selector de bloques para animes largos (>50 eps) — se inyecta por JS -->
+            <div id="selector-bloques-container"></div>
             <div class="episode-grid" id="episodeGrid"></div>
           </section>
         </div>
