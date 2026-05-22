@@ -1221,7 +1221,6 @@ function setModalMode(mode) {
 
 // ─── STREAMING ────────────────────────────────
 async function procesarStreamingEpisodio(episodeObj) {
-  // Navegar a la vista del player
   mostrarVista("playerView");
 
   const serverCont  = document.getElementById("modalServers");
@@ -1229,23 +1228,20 @@ async function procesarStreamingEpisodio(episodeObj) {
   const iframeEl    = document.getElementById("videoPlayer");
   const nativeEl    = document.getElementById("videoPlayerNative");
 
-  // Mostrar estado de carga
   if (loader)   { loader.classList.remove("hidden"); }
   if (iframeEl) { iframeEl.style.display = "none"; iframeEl.src = ""; }
   if (nativeEl) { nativeEl.style.display = "none"; nativeEl.src = ""; }
   if (serverCont) serverCont.innerHTML = "";
 
-  numeroEpisodioActual     = episodeObj.number || "?";
-  servidoresStreamCache    = [];
-  servidoresDownloadCache  = [];
+  numeroEpisodioActual    = episodeObj.number || "?";
+  servidoresStreamCache   = [];
+  servidoresDownloadCache = [];
   setModalMode("stream");
 
-  // Actualizar breadcrumb y título del player
   const animeTitleEl = document.getElementById("playerAnimeTitle");
   const epLabelEl    = document.getElementById("playerEpLabel");
   const bcAnime      = document.getElementById("playerBreadcrumbAnime");
   const bcEp         = document.getElementById("playerBreadcrumbEp");
-  const epCountEl    = document.getElementById("playerEpCount");
   const animeNombre  = animeActualBackend?.title || animeActualMAL?.title || "Anime";
 
   if (animeTitleEl) animeTitleEl.textContent = animeNombre;
@@ -1253,11 +1249,9 @@ async function procesarStreamingEpisodio(episodeObj) {
   if (bcAnime)      bcAnime.textContent      = animeNombre;
   if (bcEp)         bcEp.textContent         = `Ep. ${numeroEpisodioActual}`;
 
-  // Actualizar botones de favorito y seguir en el player
   updatePlayerFavBtn();
   updatePlayerFollowBtn();
 
-  // Marcar episodio activo en el sidebar
   document.querySelectorAll("#playerEpisodeGrid .ep-card-sidebar").forEach(c => {
     const isActive = c.dataset.epNum == numeroEpisodioActual;
     c.classList.toggle("active", isActive);
@@ -1267,11 +1261,8 @@ async function procesarStreamingEpisodio(episodeObj) {
       if (dateEl) dateEl.style.display = "none";
       if (!nowEl) {
         const info = c.querySelector(".ep-sidebar-info");
-        if (info) {
-          info.insertAdjacentHTML("beforeend",
-            `<span class="ep-now-playing"><span class="ep-now-dot"></span>Reproduciendo</span>`
-          );
-        }
+        if (info) info.insertAdjacentHTML("beforeend",
+          `<span class="ep-now-playing"><span class="ep-now-dot"></span>Reproduciendo</span>`);
       }
       c.scrollIntoView({ behavior: "smooth", block: "nearest" });
     } else {
@@ -1284,9 +1275,6 @@ async function procesarStreamingEpisodio(episodeObj) {
 
   if (animeActualMAL?.mal_id) {
     pushUrl(animeActualMAL.mal_id, numeroEpisodioActual);
-  }
-
-  if (animeActualMAL?.mal_id) {
     const prevEntry = getHistoryEntry(animeActualMAL.mal_id, numeroEpisodioActual);
     _episodeStartTime = Date.now();
     _lastSavedTime    = 0;
@@ -1295,48 +1283,75 @@ async function procesarStreamingEpisodio(episodeObj) {
     renderContinueWatching();
   }
 
+  // ── URL inválida o modo demo → mostrar mensaje, sin video de prueba ──
   const esUrlFalsa = !episodeObj.url ||
     episodeObj.url.includes("mock-provider") ||
     episodeObj.url.includes("undefined") ||
-    (
-      !episodeObj.url.includes("animeav1.com") &&
-      !episodeObj.url.includes("jkanime.net")  &&
-      !episodeObj.url.includes("animeflv.net")
-    );
+    episodeObj.url.trim() === "";
 
   if (esModoDemoActivo || esUrlFalsa) {
-    setTimeout(() => {
-      servidoresStreamCache   = [{ server: "Servidor Demo", embed_url: "https://vjs.zencdn.net/v/oceans.mp4" }];
-      servidoresDownloadCache = [{ server: "Mega Demo", url: "https://mega.nz" }];
-      renderizarBotonesDeServidor(servidoresStreamCache);
-    }, 300);
+    _mostrarMensajeNoDisponible(serverCont, loader);
     return;
   }
 
+  // ── Caché en sessionStorage por episodio ──
+  const cacheKey = `nextarc_ep_${animeActualMAL?.mal_id || "x"}_${numeroEpisodioActual}_${idiomaActual}`;
+  let result = null;
+
   try {
-    const res = await fetch(`${BASE_URL}/episode?url=${encodeURIComponent(episodeObj.url)}`, { headers: apiHeaders });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const result = await res.json();
-
-    if (result?.success && result.data) {
-      const lk   = idiomaActual.toLowerCase();
-      const lkU  = idiomaActual.toUpperCase();
-
-      servidoresStreamCache   = result.data.servers?.[lk] || result.data.streamLinks?.[lkU] || [];
-      servidoresDownloadCache = result.data.downloadLinks?.[lkU] || servidoresStreamCache.filter(s => s.url || s.download_url);
-
-      if (servidoresStreamCache.length || servidoresDownloadCache.length) {
-        renderizarBotonesDeServidor(servidoresStreamCache);
-        return;
-      }
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      result = JSON.parse(cached);
+      console.info("[Caché] Episodio cargado desde sessionStorage:", cacheKey);
     }
-    throw new Error("Sin enlaces.");
-  } catch(err) {
-    console.warn("[Fallback stream]", err.message);
-    servidoresStreamCache   = [{ server: "Reproductor Seguro", embed_url: "https://vjs.zencdn.net/v/oceans.mp4" }];
-    servidoresDownloadCache = [{ server: "Descarga Emergencia", url: "https://vjs.zencdn.net/v/oceans.mp4" }];
-    renderizarBotonesDeServidor(servidoresStreamCache);
+  } catch (e) { /* sessionStorage bloqueado por extensión o privado */ }
+
+  if (!result) {
+    try {
+      const res = await fetch(`${BASE_URL}/episode?url=${encodeURIComponent(episodeObj.url)}`, { headers: apiHeaders });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      result = await res.json();
+      try { sessionStorage.setItem(cacheKey, JSON.stringify(result)); } catch (e) {}
+    } catch (err) {
+      console.warn("[Stream] Error al obtener episodio:", err.message);
+      _mostrarMensajeNoDisponible(serverCont, loader);
+      return;
+    }
   }
+
+  if (result?.success && result.data) {
+    const lk  = idiomaActual.toLowerCase();
+    const lkU = idiomaActual.toUpperCase();
+
+    servidoresStreamCache   = result.data.servers?.[lk] || result.data.streamLinks?.[lkU] || [];
+    servidoresDownloadCache = result.data.downloadLinks?.[lkU] ||
+      servidoresStreamCache.filter(s => s.url || s.download_url);
+
+    if (servidoresStreamCache.length || servidoresDownloadCache.length) {
+      renderizarBotonesDeServidor(servidoresStreamCache);
+      return;
+    }
+  }
+
+  // Sin servidores en el idioma solicitado
+  _mostrarMensajeNoDisponible(serverCont, loader);
+}
+
+// ── Helper: mensaje estético de no disponible ──
+function _mostrarMensajeNoDisponible(serverCont, loader) {
+  if (loader) loader.classList.add("hidden");
+  if (serverCont) {
+    serverCont.innerHTML = `
+      <div class="player-unavailable">
+        <i class="fas fa-video-slash"></i>
+        <div>
+          <strong>Episodio no disponible</strong>
+          <p>Este episodio no se encuentra disponible en este momento o no cuenta con doblaje latino.<br>
+          Intenta cambiar de versión.</p>
+        </div>
+      </div>`;
+  }
+  
 }
 
 function renderizarBotonesDeServidor(listaServidores) {
@@ -2175,21 +2190,20 @@ async function verDetallesAnime(animeId) {
 
   if (epGrid) epGrid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;"><i class="fas fa-spinner fa-spin"></i> Conectando...</p>`;
 
-  mostrarVista("detailsView");
+ mostrarVista("detailsView");
+
   // ─── Toggle Leer más / Leer menos ────────────────
-const synopsisEl = document.getElementById("detSynopsis");
-const toggleBtn  = document.getElementById("btnToggleSynopsis");
+  const synopsisEl = document.getElementById("detSynopsis");
+  const toggleBtn  = document.getElementById("btnToggleSynopsis");
+  if (synopsisEl && toggleBtn) {
+    synopsisEl.classList.add("sinopsis-recortada");
+    toggleBtn.textContent = "Leer más";
+    toggleBtn.onclick = function () {
+      const recortada = synopsisEl.classList.toggle("sinopsis-recortada");
+      toggleBtn.textContent = recortada ? "Leer más" : "Leer menos";
+    };
+  }
 
-if (synopsisEl && toggleBtn) {
-  // Reiniciar estado al abrir una nueva ficha
-  synopsisEl.classList.add("sinopsis-recortada");
-  toggleBtn.textContent = "Leer más";
-
-  toggleBtn.onclick = function () {
-    const recortada = synopsisEl.classList.toggle("sinopsis-recortada");
-    toggleBtn.textContent = recortada ? "Leer más" : "Leer menos";
-  };
-}
   updateFavBtn();
   updateFollowBtn();
 
@@ -2205,58 +2219,78 @@ if (synopsisEl && toggleBtn) {
   fetchRelacionesAniList(animeId).then(edges => {
     renderRelacionesTemporadas(edges);
   });
+// ── Caché sessionStorage por anime ──
+  const animeCache = (() => {
+    const key = `nextarc_info_${animeId}`;
+    try {
+      const raw = sessionStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  })();
 
-  let resultsArray   = [];
-  let origenServidor = "Local";
+   try {
+    let resultsArray   = [];
+    let origenServidor = "Local";
+    let infoData       = animeCache;
 
-  try {
-    const searchRes = await fetch(`${BASE_URL}/search?q=${encodeURIComponent(anime.title)}`, { headers: apiHeaders });
-    if (searchRes.ok) {
-      const r = await searchRes.json();
-      if (r?.success && r.data) {
-        resultsArray   = Array.isArray(r.data) ? r.data : (r.data.results || []);
-        origenServidor = r.source || "Scraper";
-      }
-    }
-
-    if (!resultsArray.length && anime.title_japanese) {
-      const altRes = await fetch(`${BASE_URL}/search?q=${encodeURIComponent(anime.title_japanese)}`, { headers: apiHeaders });
-      if (altRes.ok) {
-        const r = await altRes.json();
+    if (!infoData) {
+      const searchRes = await fetch(`${BASE_URL}/search?q=${encodeURIComponent(anime.title)}`, { headers: apiHeaders });
+      if (searchRes.ok) {
+        const r = await searchRes.json();
         if (r?.success && r.data) {
           resultsArray   = Array.isArray(r.data) ? r.data : (r.data.results || []);
-          origenServidor = r.source || origenServidor;
+          origenServidor = r.source || "Scraper";
         }
       }
-    }
 
-    if (resultsArray.length > 0) {
-      const infoRes = await fetch(`${BASE_URL}/info?url=${encodeURIComponent(resultsArray[0].url)}`, { headers: apiHeaders });
-      if (!infoRes.ok) throw new Error("Fallo info");
-      const infoResult = await infoRes.json();
-
-      if (infoResult?.success && infoResult.data) {
-        animeActualBackend = infoResult.data;
-
-        if (animeActualBackend.title)
-          document.getElementById("detTitle").textContent = animeActualBackend.title;
-        document.getElementById("detSynopsis").textContent =
-          animeActualBackend.description || animeActualBackend.synopsis || anime.synopsis || "Sin descripción.";
-
-        statusInd.innerHTML = `<i class="fas fa-server"></i> ${origenServidor.toUpperCase()}`;
-        statusInd.style.background = "var(--accent)";
-        statusInd.style.color      = "#0a0a18";
-
-        construirListaEpisodios(
-          animeActualBackend.episodes || animeActualBackend.list || animeActualBackend.episodeList || []
-        );
-        return;
+      if (!resultsArray.length && anime.title_japanese) {
+        const altRes = await fetch(`${BASE_URL}/search?q=${encodeURIComponent(anime.title_japanese)}`, { headers: apiHeaders });
+        if (altRes.ok) {
+          const r = await altRes.json();
+          if (r?.success && r.data) {
+            resultsArray   = Array.isArray(r.data) ? r.data : (r.data.results || []);
+            origenServidor = r.source || origenServidor;
+          }
+        }
       }
+
+      if (resultsArray.length > 0) {
+        const infoRes = await fetch(`${BASE_URL}/info?url=${encodeURIComponent(resultsArray[0].url)}`, { headers: apiHeaders });
+        if (!infoRes.ok) throw new Error("Fallo info");
+        const infoResult = await infoRes.json();
+        if (infoResult?.success && infoResult.data) {
+          infoData = infoResult.data;
+          try { sessionStorage.setItem(`nextarc_info_${animeId}`, JSON.stringify(infoData)); } catch {}
+        }
+      }
+    } else {
+      origenServidor = "Caché Local";
     }
+
+    if (infoData) {
+      animeActualBackend = infoData;
+
+      if (animeActualBackend.title)
+        document.getElementById("detTitle").textContent = animeActualBackend.title;
+      document.getElementById("detSynopsis").textContent =
+        animeActualBackend.description || animeActualBackend.synopsis || anime.synopsis || "Sin descripción.";
+
+      statusInd.innerHTML = `<i class="fas fa-server"></i> ${origenServidor.toUpperCase()}`;
+      statusInd.style.background = "var(--accent)";
+      statusInd.style.color      = "#0a0a18";
+
+      construirListaEpisodios(
+        animeActualBackend.episodes || animeActualBackend.list || animeActualBackend.episodeList || []
+      );
+      return;
+    }
+
     throw new Error("Sin registros en scraper.");
-  } catch(err) {
-    esModoDemoActivo = true;
-    statusInd.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Modo Demo`;
+  } catch (err) {
+    console.warn("[Backend]", err.message);
+    esModoDemoActivo = false; // no activar modo demo: solo mostrar episodios vacíos
+
+    statusInd.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Sin conexión`;
     statusInd.style.background = "var(--warning)";
     statusInd.style.color      = "#0a0a18";
 
@@ -2267,7 +2301,7 @@ if (synopsisEl && toggleBtn) {
       title: anime.title, url: "",
       episodes: Array.from({ length: totalEps }, (_, i) => ({
         number: i + 1,
-        url:    `https://mock-provider.com/episode-${i + 1}`,
+        url:    "", // URL vacía → procesarStreamingEpisodio muestra mensaje, no video demo
       })),
     };
     construirListaEpisodios(animeActualBackend.episodes);
