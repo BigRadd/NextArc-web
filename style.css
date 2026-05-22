@@ -1,10 +1,9 @@
 /* =============================================
-   ANIMEFLIX — STYLESHEET COMPLETO v2.0
-   Fuentes: Syne (display) + Nunito (body)
+   ANIMEFLIX — STYLESHEET COMPLETO v3.0
+   Fuentes: Syne (display) + Inter (body)
    ============================================= */
 
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Nunito:wght@400;500;600;700&display=swap');
-
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&family=Syne:wght@700;800&display=swap');
 /* ─── CSS VARIABLES / TEMAS ─────────────────── */
 :root {
   --bg-base:        #0a0a18;
@@ -16,9 +15,9 @@
   --accent-dark:    #009e7e;
   --danger:         #e74c3c;
   --warning:        #f59e0b;
-  --text-primary:   #f0f0f8;
-  --text-secondary: #9090b8;
-  --text-muted:     #5a5a80;
+  --text-primary:   #ffffff;
+  --text-secondary: #c8c8e0;
+  --text-muted:     #7878a0;
   --radius-sm:      6px;
   --radius-md:      10px;
   --radius-lg:      16px;
@@ -33,8 +32,8 @@
   --bg-card:        #ffffff;
   --border:         #d4d6f0;
   --text-primary:   #0a0a18;
-  --text-secondary: #4a4a6a;
-  --text-muted:     #8888aa;
+  --text-secondary: #3a3a5a;
+  --text-muted:     #7070a0;
   --shadow-card:    0 8px 32px rgba(0,0,0,0.10);
 }
 
@@ -44,12 +43,15 @@
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Nunito', sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--bg-base);
   color: var(--text-primary);
   overflow-x: hidden;
   transition: background-color 0.4s, color 0.4s;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02","cv03","cv04","cv11";
 }
 
 /* Grain overlay */
@@ -134,8 +136,9 @@ body::before {
   border-radius: 20px;
   color: var(--text-primary);
   width: 260px;
-  font-family: 'Nunito', sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   font-size: 0.9rem;
+  font-weight: 500;
   transition: var(--transition);
 }
 .search-bar .search-icon {
@@ -311,9 +314,10 @@ body.light-mode .logo-text {
   font-size: 2.4rem;
   font-weight: 800;
   margin-bottom: 0.5rem;
-  color: var(--text-primary);
+  color: #ffffff;
   line-height: 1.1;
   letter-spacing: -1px;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.6);
 }
 
 .hero-subtitle {
@@ -321,13 +325,15 @@ body.light-mode .logo-text {
   font-weight: 600;
   color: var(--accent);
   margin-bottom: 0.75rem;
+  letter-spacing: 0.01em;
 }
 
 .hero-description {
   margin-bottom: 1.75rem;
-  line-height: 1.65;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+  line-height: 1.7;
+  color: #e0e0f0;
+  font-size: 0.92rem;
+  font-weight: 400;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -340,7 +346,8 @@ body.light-mode .logo-text {
   align-items: center;
   margin-bottom: 1.5rem;
   font-size: 0.85rem;
-  color: var(--text-muted);
+  color: #b3b3cc;
+  font-weight: 500;
 }
 .hero-meta .rating { color: var(--warning); font-weight: 700; }
 
@@ -370,7 +377,7 @@ body.light-mode .logo-text {
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Nunito', sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   font-weight: 700;
   font-size: 0.88rem;
   transition: var(--transition);
@@ -379,6 +386,7 @@ body.light-mode .logo-text {
   align-items: center;
   gap: 0.5rem;
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 .btn:hover { transform: translateY(-2px); }
 .btn:active { transform: translateY(0); }
@@ -418,7 +426,7 @@ body.light-mode .logo-text {
   font-family: 'Syne', sans-serif;
   font-size: 1.25rem;
   font-weight: 800;
-  color: var(--text-primary);
+  color: #ffffff;
   letter-spacing: -0.5px;
 }
 
@@ -483,13 +491,15 @@ body.light-mode .logo-text {
 .anime-info { padding: 0.85rem; }
 .anime-title {
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   margin-bottom: 0.4rem;
+  color: #ffffff;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  line-height: 1.35;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
 }
 .anime-rating {
   color: var(--warning);
@@ -498,8 +508,9 @@ body.light-mode .logo-text {
   margin-bottom: 0.3rem;
 }
 .anime-genres {
-  color: var(--text-muted);
-  font-size: 0.78rem;
+  color: #8888b8;
+  font-size: 0.75rem;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -645,6 +656,7 @@ body.light-mode .logo-text {
   font-size: 2rem;
   font-weight: 800;
   letter-spacing: -0.5px;
+  line-height: 1.15;
 }
 
 .details-meta {
@@ -658,7 +670,9 @@ body.light-mode .logo-text {
   border: 1px solid var(--border);
   padding: 3px 10px;
   border-radius: 4px;
-  color: var(--text-secondary);
+  color: #c0c0dc;
+  font-weight: 500;
+  font-size: 0.82rem;
 }
 
 /* ─── LANG SELECTOR ──────────────────────────── */
@@ -674,10 +688,11 @@ body.light-mode .logo-text {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Nunito', sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   font-weight: 700;
   font-size: 0.85rem;
   transition: var(--transition);
+  letter-spacing: 0.02em;
 }
 .lang-btn.active {
   background: linear-gradient(135deg, var(--accent), var(--accent-dark));
@@ -701,7 +716,7 @@ body.light-mode .logo-text {
   text-align: center;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Nunito', sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   font-weight: 700;
   font-size: 0.85rem;
   transition: var(--transition);
@@ -735,14 +750,14 @@ body.light-mode .logo-text {
 }
 .server-btn {
   background: var(--bg-elevated);
-  color: var(--text-secondary);
+  color: #c0c0dc;
   border: 1px solid var(--border);
   padding: 6px 16px;
   border-radius: 4px;
   cursor: pointer;
-  font-family: 'Nunito', sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   font-size: 0.82rem;
-  font-weight: 700;
+  font-weight: 600;
   transition: var(--transition);
 }
 .server-btn.active {
@@ -767,7 +782,7 @@ body.light-mode .logo-text {
   border: none;
   color: var(--text-secondary);
   padding: 9px;
-  font-family: 'Nunito', sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   font-weight: 700;
   cursor: pointer;
   border-radius: var(--radius-sm);
@@ -821,6 +836,7 @@ body.light-mode .logo-text {
   font-family: 'Syne', sans-serif;
   font-size: 1.1rem;
   font-weight: 800;
+  color: #ffffff;
 }
 .modal-close {
   background: none; border: none; cursor: pointer;
@@ -886,8 +902,9 @@ body.light-mode .logo-text {
   color: var(--text-primary);
   padding: 0.6rem 1rem;
   border-radius: var(--radius-sm);
-  font-family: 'Nunito', sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
   outline: none;
   transition: var(--transition);
@@ -905,29 +922,30 @@ body.light-mode .logo-text {
   background: none; border: none;
   color: var(--text-muted);
   padding: 0.75rem 1rem;
-  font-family: 'Nunito', sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   font-weight: 700; cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: var(--transition);
   font-size: 0.88rem;
 }
 .account-tab-btn.active {
-  color: var(--text-primary);
+  color: #ffffff;
   border-bottom-color: var(--accent);
 }
 .account-panel { display: none; }
 .account-panel.active { display: block; }
 
 .input-group { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 1rem; }
-.input-label { font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); }
+.input-label { font-size: 0.8rem; font-weight: 600; color: #c0c0dc; }
 .input-field {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   color: var(--text-primary);
   padding: 0.6rem 1rem;
   border-radius: var(--radius-sm);
-  font-family: 'Nunito', sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   font-size: 0.9rem;
+  font-weight: 400;
   transition: var(--transition);
   outline: none;
 }
@@ -1011,10 +1029,11 @@ body.light-mode .logo-text {
 }
 .calendar-show-info { min-width: 0; }
 .calendar-show-title {
-  font-weight: 700; font-size: 0.83rem;
+  font-weight: 600; font-size: 0.85rem;
+  color: #ffffff;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.calendar-show-time { font-size: 0.73rem; color: var(--text-muted); margin-top: 2px; }
+.calendar-show-time { font-size: 0.73rem; color: #8080a8; margin-top: 2px; font-weight: 500; }
 
 /* ─── VIDEO MODAL ────────────────────────────── */
 #videoModal {
@@ -1193,8 +1212,9 @@ body.light-mode .logo-text {
 
 .player-loader-text {
   font-size: 0.82rem;
-  color: var(--text-muted);
-  font-family: 'Nunito', sans-serif;
+  color: #7070a0;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 500;
 }
 
 /* ─── BLOQUE DE METADATA ────────────────────────── */
@@ -1218,7 +1238,7 @@ body.light-mode .logo-text {
   font-family: 'Syne', sans-serif;
   font-size: 1.35rem;
   font-weight: 800;
-  color: var(--text-primary);
+  color: #ffffff;
   letter-spacing: -0.4px;
   line-height: 1.2;
   margin: 0;
@@ -1226,9 +1246,9 @@ body.light-mode .logo-text {
 
 .player-ep-label {
   font-size: 0.85rem;
-  color: var(--text-muted);
+  color: #9090b8;
   margin-top: 3px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .player-lang-switch {
@@ -1256,10 +1276,10 @@ body.light-mode .logo-text {
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  font-family: 'Nunito', sans-serif;
+  color: #8080a8;
+  font-family: 'Inter', system-ui, sans-serif;
   font-size: 0.82rem;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   transition: var(--transition);
 }
@@ -1302,9 +1322,9 @@ body.light-mode .logo-text {
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  font-family: 'Nunito', sans-serif;
-  font-weight: 700;
+  color: #8080a8;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 600;
   font-size: 0.83rem;
   cursor: pointer;
   transition: var(--transition);
@@ -1314,7 +1334,7 @@ body.light-mode .logo-text {
 }
 .player-mode-tab.active {
   background: var(--bg-surface);
-  color: var(--text-primary);
+  color: #ffffff;
   box-shadow: 0 1px 6px rgba(0,0,0,0.35);
 }
 
@@ -1336,14 +1356,14 @@ body.light-mode .logo-text {
 /* Botones de servidor — rediseño completo */
 .player-server-tabs .server-btn {
   background: var(--bg-elevated);
-  color: var(--text-secondary);
+  color: #c0c0dc;
   border: 1px solid var(--border);
   padding: 7px 16px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Nunito', sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
   font-size: 0.82rem;
-  font-weight: 700;
+  font-weight: 600;
   transition: var(--transition);
 }
 .player-server-tabs .server-btn:hover:not(.active) {
@@ -1485,27 +1505,28 @@ body.light-mode .logo-text {
 }
 .ep-sidebar-num {
   font-size: 0.67rem;
-  color: var(--text-muted);
+  color: #7070a0;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   font-weight: 700;
 }
 .ep-card-sidebar.active .ep-sidebar-num { color: var(--accent); }
 
 .ep-sidebar-title {
   font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--text-secondary);
+  font-weight: 600;
+  color: #c8c8e0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.3;
+  line-height: 1.35;
 }
-.ep-card-sidebar.active .ep-sidebar-title { color: var(--text-primary); }
+.ep-card-sidebar.active .ep-sidebar-title { color: #ffffff; }
 
 .ep-sidebar-date {
-  font-size: 0.7rem;
-  color: var(--text-muted);
+  font-size: 0.68rem;
+  color: #7070a0;
+  font-weight: 500;
 }
 
 .ep-now-playing {
@@ -1549,4 +1570,156 @@ body.light-mode .logo-text {
   .player-video-wrap { border-radius: 10px; }
   .player-anime-title { font-size: 1.1rem; }
   .player-sidebar { max-height: 340px; }
+}
+
+/* ═══════════════════════════════════════════════════
+   TIPOGRAFÍA GLOBAL — OVERRIDES DE CONTRASTE
+   Inter · Legibilidad mejorada en modo oscuro
+   ═══════════════════════════════════════════════════ */
+
+/* ── Sinopsis / detalles extensos ── */
+#detSynopsis {
+  font-size: 0.97rem !important;
+  line-height: 1.75 !important;
+  color: #e4e4f0 !important;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* ── Géneros en detailsView ── */
+#detGenres span {
+  color: #b8b8d8 !important;
+  font-weight: 500 !important;
+  font-size: 0.78rem !important;
+}
+
+/* ── Meta items (score, year, type) ── */
+#detMeta .details-meta-item {
+  color: #c0c0dc;
+  font-weight: 500;
+}
+
+/* ── Carrusel "Continuar Viendo" — textos ── */
+.cw-title {
+  font-size: 0.84rem !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+}
+.cw-time {
+  font-size: 0.72rem !important;
+  color: #8888b0 !important;
+  font-weight: 500 !important;
+}
+.cw-ep-badge {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+/* ── Tarjetas de episodio premium (grid detalles) ── */
+.ep-card-info {
+  padding: 7px 8px 9px !important;
+}
+.ep-card-title {
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  color: #e0e0f4 !important;
+  line-height: 1.4 !important;
+}
+.ep-card-badge {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 0.62rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
+}
+
+/* ── Selector de bloques (animes largos) ── */
+.selector-bloques-label {
+  font-family: 'Inter', system-ui, sans-serif !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  color: #9090b8 !important;
+}
+.selector-bloques-select {
+  font-family: 'Inter', system-ui, sans-serif !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  color: #e0e0f4 !important;
+}
+
+/* ── Sección "Episodios" header ── */
+#epCount {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #8888b0;
+}
+
+/* ── Dropdown Playlist ── */
+.pd-name {
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  color: #e0e0f4 !important;
+}
+.pd-count {
+  color: #8080a8 !important;
+  font-size: 0.72rem !important;
+  font-weight: 500 !important;
+}
+.pd-header span {
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+}
+
+/* ── Airing sidebar ── */
+.airing-title {
+  font-weight: 600 !important;
+  color: #d0d0f0 !important;
+}
+.airing-ep {
+  color: #7878a8 !important;
+  font-weight: 500 !important;
+}
+
+/* ── Following today / calendar section titles ── */
+.section-title {
+  text-shadow: none;
+}
+
+/* ── Sidebar items legibility ── */
+.sidebar-item {
+  font-weight: 500 !important;
+  font-size: 0.88rem !important;
+  color: #a0a0c8 !important;
+}
+.sidebar-item.active {
+  color: #0a0a18 !important;
+  font-weight: 700 !important;
+}
+.sidebar-item:hover {
+  color: #ffffff !important;
+}
+
+/* ── Breadcrumb player ── */
+.player-breadcrumb {
+  font-size: 0.82rem !important;
+  font-weight: 500 !important;
+  color: #8080a8 !important;
+}
+
+/* ── Relaciones temporadas ── */
+.rel-card-title {
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  color: #e0e0f4 !important;
+}
+.rel-card-fmt {
+  font-size: 0.7rem !important;
+  color: #8080a8 !important;
+  font-weight: 500 !important;
+}
+.rel-titulo {
+  font-size: 0.73rem !important;
+  color: #9090b8 !important;
+  font-weight: 700 !important;
 }
