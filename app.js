@@ -972,12 +972,21 @@ function restartHeroTimer() {
   startHeroTimer();
 }
 
+// ─── FILTRO DE SEGURIDAD ───────────────────────
+function esContenidoAdulto(anime) {
+  if (anime.rating === "Rx - Hentai") return true;
+  if (Array.isArray(anime.genres)) {
+    return anime.genres.some(g => g.mal_id === 12 || g.name === "Hentai");
+  }
+  return false;
+}
+
 // ─── CATÁLOGO ─────────────────────────────────
 async function loadAnime() {
   try {
     const res  = await fetch(`${JIKAN}/top/anime?limit=24`);
     const data = await res.json();
-    localAnimeData = data.data || [];
+    localAnimeData    = (data.data || []).filter(a => !esContenidoAdulto(a));
     filteredAnimeData = localAnimeData;
     renderGrid(filteredAnimeData);
     buildHero();
@@ -995,17 +1004,19 @@ function renderGrid(animes) {
   const grid = document.getElementById("animeGrid");
   grid.innerHTML = "";
 
-  const count = document.getElementById("catalogCount");
-  if (count) count.textContent = `${animes.length} títulos`;
+  const seguros = animes.filter(a => !esContenidoAdulto(a));
 
-  if (!animes.length) {
+  const count = document.getElementById("catalogCount");
+  if (count) count.textContent = `${seguros.length} títulos`;
+
+  if (!seguros.length) {
     grid.innerHTML = `<p style="color:var(--text-muted);grid-column:1/-1;text-align:center;padding:2rem;">
       <i class="fas fa-search"></i> No se encontraron resultados.
     </p>`;
     return;
   }
 
-  animes.forEach(anime => {
+  seguros.forEach(anime => {
     const genres = anime.genres ? anime.genres.map(g => g.name).join(", ") : "";
     const card = document.createElement("div");
     card.className = "anime-card";
@@ -1023,6 +1034,7 @@ function renderGrid(animes) {
     grid.appendChild(card);
   });
 }
+  
 
 // ─── FILTROS TV / MOVIE ────────────────────────
 function applyFilter(filterType) {
@@ -1036,12 +1048,12 @@ function applyFilter(filterType) {
 
   if (filterType === "movie") {
     filteredAnimeData = localAnimeData.filter(a =>
-      ["Movie","OVA","ONA","Special","Music"].includes(a.type)
+      ["Movie","OVA","ONA","Special","Music"].includes(a.type) && !esContenidoAdulto(a)
     );
     if (titleEl) titleEl.textContent = "Películas, OVAs y Especiales";
   } else {
     filteredAnimeData = localAnimeData.filter(a =>
-      !["Movie"].includes(a.type) || !a.type
+      (!["Movie"].includes(a.type) || !a.type) && !esContenidoAdulto(a)
     );
     if (titleEl) titleEl.textContent = "Animes Más Populares";
   }
@@ -2325,20 +2337,18 @@ async function buscarPorNombreYVer(nombre) {
   setSearchState("active");
   mostrarVista("homeView");
 
-  // Paso 1: resultados locales al instante (catálogo ya cargado en memoria)
   const queryLower = query.toLowerCase();
   const localResults = localAnimeData.filter(a => {
-    // Título principal
+    if (esContenidoAdulto(a)) return false;
     if ((a.title || "").toLowerCase().includes(queryLower)) return true;
-    // Títulos legacy (campos sueltos)
     if ((a.title_english || "").toLowerCase().includes(queryLower)) return true;
     if ((a.title_japanese || "").toLowerCase().includes(queryLower)) return true;
-    // Array estructurado de títulos alternativos de Jikan: [{ type, title }]
     if (Array.isArray(a.titles)) {
       return a.titles.some(t => (t.title || "").toLowerCase().includes(queryLower));
     }
     return false;
   });
+
   if (localResults.length) {
     document.getElementById("catalogTitle").textContent = `Resultados para: "${query}"`;
     renderGrid(localResults);
@@ -2346,32 +2356,31 @@ async function buscarPorNombreYVer(nombre) {
     document.getElementById("catalogTitle").textContent = `Buscando "${query}"...`;
   }
 
-  // Paso 2: comprobar caché de sesión antes de ir a Jikan
   if (searchCache.has(query)) {
-    const cached = searchCache.get(query);
+    const cached = searchCache.get(query).filter(a => !esContenidoAdulto(a));
     document.getElementById("catalogTitle").textContent = `Resultados para: "${query}"`;
     renderGrid(cached);
     return;
   }
 
-  // Paso 3: petición real a Jikan
   try {
     const res  = await fetch(`${JIKAN}/anime?q=${encodeURIComponent(query)}`);
     const data = await res.json();
 
     if (data.data?.length) {
-      data.data.forEach(found => {
+      const seguros = data.data.filter(a => !esContenidoAdulto(a));
+
+      seguros.forEach(found => {
         if (!localAnimeData.find(a => a.mal_id === found.mal_id)) {
           localAnimeData.push(found);
         }
       });
 
-      // Guardar en caché, expira en 5 minutos
-      searchCache.set(query, data.data);
+      searchCache.set(query, seguros);
       setTimeout(() => searchCache.delete(query), 5 * 60 * 1000);
 
       document.getElementById("catalogTitle").textContent = `Resultados para: "${query}"`;
-      renderGrid(data.data);
+      renderGrid(seguros);
     } else if (!localResults.length) {
       showToast("No se encontraron resultados", "error");
     }
