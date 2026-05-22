@@ -881,6 +881,14 @@ function openUserSection() {
 const VIEWS = ["homeView", "detailsView", "airingView", "calendarView", "favoritesView", "playlistsView", "playerView"];
 
 function mostrarVista(vista) {
+  // ── FIX: Detener audio/video al abandonar playerView por CUALQUIER vía ──
+  if (vista !== "playerView") {
+    const iframe = document.getElementById("videoPlayer");
+    const native = document.getElementById("videoPlayerNative");
+    if (iframe && iframe.src) { iframe.src = ""; iframe.style.display = "none"; }
+    if (native && native.src) { native.src = ""; native.style.display = "none"; }
+  }
+
   VIEWS.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = (id === vista) ? (id === "playerView" ? "flex" : "block") : "none";
@@ -1440,6 +1448,189 @@ function cargarEnPlayer(url) {
   if (loader) loader.classList.add("hidden");
 }
 
+// ─── [NUEVO] RELACIONES PRECUELA / SECUELA (AniList) ───────────
+async function fetchRelacionesAniList(malId) {
+  const query = `
+    query ($malId: Int) {
+      Media(idMal: $malId, type: ANIME) {
+        relations {
+          edges {
+            relationType
+            node {
+              idMal
+              title { romaji english }
+              coverImage { medium }
+              format
+            }
+          }
+        }
+      }
+    }
+  `;
+  try {
+    const res = await fetch(ANILIST, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, variables: { malId: Number(malId) } }),
+    });
+    const json = await res.json();
+    return json?.data?.Media?.relations?.edges || [];
+  } catch(e) {
+    console.warn("[AniList relaciones]", e.message);
+    return [];
+  }
+}
+
+function renderRelacionesTemporadas(edges) {
+  const container = document.getElementById("relacionesContainer");
+  if (!container) return;
+
+  // Filtrar solo PREQUEL y SEQUEL
+  const relevantes = edges.filter(e =>
+    e.relationType === "PREQUEL" || e.relationType === "SEQUEL"
+  );
+
+  if (!relevantes.length) {
+    container.style.display = "none";
+    return;
+  }
+
+  container.style.display = "block";
+
+  // Inyectar estilos (solo una vez)
+  if (!document.getElementById("relacionesStyle")) {
+    const s = document.createElement("style");
+    s.id = "relacionesStyle";
+    s.textContent = `
+      #relacionesContainer {
+        margin-top: 1.25rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--border);
+      }
+      .rel-titulo {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        margin-bottom: 0.75rem;
+      }
+      .rel-titulo i { color: var(--accent); margin-right: 0.35rem; }
+      .rel-cards {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+      .rel-card {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0.5rem 0.75rem 0.5rem 0.5rem;
+        cursor: pointer;
+        transition: border-color 0.2s, transform 0.18s, box-shadow 0.18s;
+        max-width: 260px;
+        text-decoration: none;
+      }
+      .rel-card:hover {
+        border-color: var(--accent);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(0,212,170,0.18);
+      }
+      .rel-card-cover {
+        width: 44px;
+        height: 62px;
+        border-radius: 6px;
+        object-fit: cover;
+        background: var(--bg-card);
+        flex-shrink: 0;
+      }
+      .rel-card-info { flex: 1; min-width: 0; }
+      .rel-card-badge {
+        font-size: 0.62rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 1px 6px;
+        border-radius: 4px;
+        display: inline-block;
+        margin-bottom: 0.3rem;
+      }
+      .rel-card-badge.prequel {
+        background: rgba(124,106,247,0.2);
+        color: #a89af7;
+        border: 1px solid rgba(124,106,247,0.4);
+      }
+      .rel-card-badge.sequel {
+        background: rgba(0,212,170,0.15);
+        color: var(--accent);
+        border: 1px solid rgba(0,212,170,0.35);
+      }
+      .rel-card-title {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .rel-card-fmt {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        margin-top: 1px;
+      }
+    `;
+    document.head.appendChild(s);
+  }
+
+  container.innerHTML = `
+    <div class="rel-titulo">
+      <i class="fas fa-layer-group"></i> Temporadas Relacionadas
+    </div>
+    <div class="rel-cards" id="relCardsInner"></div>
+  `;
+
+  const inner = document.getElementById("relCardsInner");
+
+  relevantes.forEach(edge => {
+    const node    = edge.node;
+    const malId   = node.idMal;
+    const titulo  = node.title?.english || node.title?.romaji || "Sin título";
+    const cover   = node.coverImage?.medium || "";
+    const tipo    = edge.relationType; // "PREQUEL" | "SEQUEL"
+    const formato = node.format?.replace(/_/g, " ") || "";
+
+    const card = document.createElement("div");
+    card.className = "rel-card";
+    card.setAttribute("title", tipo === "PREQUEL" ? "Ver precuela" : "Ver secuela");
+    card.innerHTML = `
+      ${cover ? `<img class="rel-card-cover" src="${cover}" alt="${titulo}" loading="lazy" />` : `<div class="rel-card-cover"></div>`}
+      <div class="rel-card-info">
+        <span class="rel-card-badge ${tipo.toLowerCase()}">${tipo === "PREQUEL" ? "◀ Precuela" : "Secuela ▶"}</span>
+        <div class="rel-card-title" title="${titulo}">${titulo}</div>
+        ${formato ? `<div class="rel-card-fmt">${formato}</div>` : ""}
+      </div>
+    `;
+
+    if (malId) {
+      card.addEventListener("click", async () => {
+        // Buscar en catálogo local primero, si no hacer fetch
+        let found = localAnimeData.find(a => a.mal_id == malId);
+        if (!found) found = await fetchAnimeById(malId);
+        if (found) verDetallesAnime(malId);
+        else showToast("No se encontró información de este anime", "error");
+      });
+    } else {
+      card.style.opacity = "0.5";
+      card.style.cursor  = "default";
+    }
+
+    inner.appendChild(card);
+  });
+}
+
 // ─── [NUEVO] METADATOS ANILIST — PRÓXIMO EPISODIO ─────────────
 // Obtiene status de emisión y timestamp exacto del próximo episodio desde AniList GraphQL.
 // No requiere API key; uso gratuito para consultas públicas.
@@ -1566,6 +1757,154 @@ async function resolveThumbnail(malId, epNumber, scraperEp, jikanMeta) {
   return (thumbCache[key] = null);
 }
 
+// ─── SELECTOR DE BLOQUES PARA ANIMES LARGOS ───
+// Crea un <select> de rangos de 50 eps si el total supera ese umbral.
+// Al cambiar de opción recalcula la página y re-renderiza el segmento.
+let _episodesArrayGlobal = []; // referencia al array completo para el selector
+
+function renderSelectorBloques(totalEpisodios) {
+  const container = document.getElementById("selector-bloques-container");
+  if (!container) return;
+  container.innerHTML = "";
+
+  if (totalEpisodios <= 50) return; // no necesita selector
+
+  const BLOQUE = 50;
+  const totalBloques = Math.ceil(totalEpisodios / BLOQUE);
+
+  // Inyectar estilos del selector (solo una vez)
+  if (!document.getElementById("selectorBloquesStyle")) {
+    const s = document.createElement("style");
+    s.id = "selectorBloquesStyle";
+    s.textContent = `
+      #selector-bloques-container {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+      }
+      .selector-bloques-label {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .selector-bloques-select {
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 0.85rem;
+        padding: 0.35rem 0.85rem;
+        cursor: pointer;
+        outline: none;
+        transition: border-color 0.2s;
+        -webkit-appearance: none;
+        appearance: none;
+        padding-right: 2rem;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='%2300d4aa'%3E%3Cpath d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.6rem center;
+      }
+      .selector-bloques-select:focus,
+      .selector-bloques-select:hover { border-color: var(--accent); }
+    `;
+    document.head.appendChild(s);
+  }
+
+  const label = document.createElement("span");
+  label.className = "selector-bloques-label";
+  label.innerHTML = `<i class="fas fa-th-list" style="color:var(--accent)"></i> Rango:`;
+
+  const select = document.createElement("select");
+  select.className = "selector-bloques-select";
+  select.setAttribute("aria-label", "Seleccionar rango de episodios");
+
+  for (let i = 0; i < totalBloques; i++) {
+    const desde = i * BLOQUE + 1;
+    const hasta = Math.min((i + 1) * BLOQUE, totalEpisodios);
+    const opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = `Episodios ${desde} – ${hasta}`;
+    select.appendChild(opt);
+  }
+
+  select.addEventListener("change", () => {
+    const bloque     = parseInt(select.value, 10);
+    const desde      = bloque * BLOQUE;
+    const hasta      = Math.min(desde + BLOQUE, _episodesArrayGlobal.length);
+    const segmento   = _episodesArrayGlobal.slice(desde, hasta);
+    _renderSegmentoEpisodios(segmento);
+  });
+
+  container.appendChild(label);
+  container.appendChild(select);
+}
+
+// Renderiza solo un segmento del array de episodios en el epGrid (sin tocar el playerGrid ni los contadores)
+async function _renderSegmentoEpisodios(segmento) {
+  const epGrid   = document.getElementById("episodeGrid");
+  if (!epGrid) return;
+  epGrid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;"><i class="fas fa-spinner fa-spin"></i> Cargando episodios...</p>`;
+
+  const animeId  = animeActualMAL?.mal_id;
+  const jikanEps = animeId ? (await fetchJikanEpisodes(animeId)) : [];
+  const GRADS    = [
+    "linear-gradient(135deg,#0f0c29,#302b63,#24243e)",
+    "linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)",
+    "linear-gradient(135deg,#0d0d0d,#1a0033,#0a0a18)",
+    "linear-gradient(135deg,#003333,#005555,#001a1a)",
+    "linear-gradient(135deg,#1b0036,#3a0068,#0d001a)",
+    "linear-gradient(135deg,#00141a,#003344,#001122)",
+    "linear-gradient(135deg,#1a0000,#330011,#0d0000)",
+    "linear-gradient(135deg,#001a00,#003300,#000d00)",
+  ];
+
+  epGrid.innerHTML = "";
+
+  for (const ep of segmento) {
+    const numeroEpisodio = typeof ep === "object" ? (ep.number || ep.episode || ep.id) : ep;
+    const jikanMeta      = jikanEps.find(j => j.mal_id == numeroEpisodio || j.episode_id == numeroEpisodio);
+    const epTitle        = jikanMeta?.title || `Episodio ${numeroEpisodio}`;
+    const grad           = GRADS[(numeroEpisodio - 1) % GRADS.length];
+    const thumbUrl       = await resolveThumbnail(animeId, numeroEpisodio, ep, jikanMeta);
+
+    const getEpPayload = () => {
+      const payload = { number: numeroEpisodio };
+      if (typeof ep === "object" && ep.url) {
+        payload.url = ep.url;
+      } else {
+        const baseUrl = animeActualBackend?.url || "";
+        payload.url = baseUrl
+          ? (baseUrl.endsWith("/") ? `${baseUrl}${numeroEpisodio}` : `${baseUrl}-${numeroEpisodio}`)
+          : `https://mock-provider.com/episode-${numeroEpisodio}`;
+      }
+      return payload;
+    };
+
+    const mediaEl = thumbUrl
+      ? `<img class="ep-card-thumb" src="${thumbUrl}" alt="Ep ${numeroEpisodio}" loading="lazy"
+              onerror="this.style.display='none';this.nextElementSibling.style.display='block';" />
+         <div class="ep-card-gradient" style="display:none;background:${grad};"></div>`
+      : `<div class="ep-card-gradient" style="background:${grad};"></div>`;
+
+    const detCard = document.createElement("div");
+    detCard.className = "ep-card-premium";
+    detCard.innerHTML = `
+      ${mediaEl}
+      <div class="ep-card-overlay"><i class="fas fa-play ep-card-play"></i></div>
+      <span class="ep-card-badge">Ep. ${numeroEpisodio}</span>
+      <div class="ep-card-info">
+        <div class="ep-card-title" title="${epTitle}">${epTitle}</div>
+      </div>
+    `;
+    detCard.addEventListener("click", () => procesarStreamingEpisodio(getEpPayload()));
+    epGrid.appendChild(detCard);
+  }
+}
+
 // ─── LISTA DE EPISODIOS ────────────────────────
 async function construirListaEpisodios(episodesArray) {
   const epGrid        = document.getElementById("episodeGrid");       // grid en detailsView
@@ -1584,8 +1923,15 @@ async function construirListaEpisodios(episodesArray) {
     if (playerGrid) playerGrid.innerHTML = msg;
     if (epCount)       epCount.textContent = "";
     if (playerEpCount) playerEpCount.textContent = "";
+    // Limpiar selector de bloques si no hay episodios
+    const sc = document.getElementById("selector-bloques-container");
+    if (sc) sc.innerHTML = "";
     return;
   }
+
+  // Guardar referencia global y renderizar selector de bloques
+  _episodesArrayGlobal = episodesArray;
+  renderSelectorBloques(episodesArray.length);
 
   if (epCount)       epCount.textContent = `${episodesArray.length} episodios`;
   if (playerEpCount) playerEpCount.textContent = `${episodesArray.length} eps`;
@@ -1640,6 +1986,12 @@ async function construirListaEpisodios(episodesArray) {
 
   if (animeId) fetchAniListEpisodes(animeId);
 
+  // Para animes con >50 eps, el epGrid ya fue delegado al selector de bloques.
+  // Disparar la renderización del primer bloque ahora:
+  if (episodesArray.length > 50 && epGrid) {
+    _renderSegmentoEpisodios(episodesArray.slice(0, 50));
+  }
+
   for (const ep of episodesArray) {
     const numeroEpisodio = typeof ep === "object" ? (ep.number || ep.episode || ep.id) : ep;
     const jikanMeta      = jikanEps.find(j => j.mal_id == numeroEpisodio || j.episode_id == numeroEpisodio);
@@ -1662,8 +2014,8 @@ async function construirListaEpisodios(episodesArray) {
       return payload;
     };
 
-    // ── Tarjeta del grid de detalles (estilo original premium) ──
-    if (epGrid) {
+    // ── Tarjeta del grid de detalles: solo para animes ≤50 eps (los de >50 los maneja el selector) ──
+    if (epGrid && episodesArray.length <= 50) {
       const mediaEl = thumbUrl
         ? `<img class="ep-card-thumb" src="${thumbUrl}" alt="Ep ${numeroEpisodio}" loading="lazy"
                 onerror="this.style.display='none';this.nextElementSibling.style.display='block';" />
@@ -1809,6 +2161,10 @@ async function verDetallesAnime(animeId) {
   const nextBadgeEl = document.getElementById("nextEpisodeBadge");
   if (nextBadgeEl) nextBadgeEl.innerHTML = "";
 
+  // [NUEVO] Limpiar sección de relaciones mientras se carga
+  const relContainer = document.getElementById("relacionesContainer");
+  if (relContainer) relContainer.style.display = "none";
+
   const genresEl = document.getElementById("detGenres");
   genresEl.innerHTML = (anime.genres || []).map(g =>
     `<span style="background:var(--bg-elevated);border:1px solid var(--border);padding:2px 10px;border-radius:4px;font-size:0.78rem;color:var(--text-secondary);">${g.name}</span>`
@@ -1829,6 +2185,11 @@ async function verDetallesAnime(animeId) {
       const { episode, airingAt } = aniData.nextAiringEpisode;
       renderNextEpisodeBadge(episode, airingAt);
     }
+  });
+
+  // [NUEVO] Cargar relaciones precuela/secuela desde AniList en paralelo
+  fetchRelacionesAniList(animeId).then(edges => {
+    renderRelacionesTemporadas(edges);
   });
 
   let resultsArray   = [];
@@ -1917,11 +2278,19 @@ async function buscarPorNombreYVer(nombre) {
   mostrarVista("homeView");
 
   // Paso 1: resultados locales al instante (catálogo ya cargado en memoria)
-  const localResults = localAnimeData.filter(a =>
-    a.title.toLowerCase().includes(query.toLowerCase()) ||
-    (a.title_english || "").toLowerCase().includes(query.toLowerCase()) ||
-    (a.title_japanese || "").toLowerCase().includes(query.toLowerCase())
-  );
+  const queryLower = query.toLowerCase();
+  const localResults = localAnimeData.filter(a => {
+    // Título principal
+    if ((a.title || "").toLowerCase().includes(queryLower)) return true;
+    // Títulos legacy (campos sueltos)
+    if ((a.title_english || "").toLowerCase().includes(queryLower)) return true;
+    if ((a.title_japanese || "").toLowerCase().includes(queryLower)) return true;
+    // Array estructurado de títulos alternativos de Jikan: [{ type, title }]
+    if (Array.isArray(a.titles)) {
+      return a.titles.some(t => (t.title || "").toLowerCase().includes(queryLower));
+    }
+    return false;
+  });
   if (localResults.length) {
     document.getElementById("catalogTitle").textContent = `Resultados para: "${query}"`;
     renderGrid(localResults);
