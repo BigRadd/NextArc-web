@@ -12,7 +12,7 @@
 
 // ─── CONFIGURACIÓN ────────────────────────────
 const API_KEY  = "dev-anime1v-key";
-const BASE_URL = "https://nextarc-production.up.railway.app";
+const BASE_URL = "https://nextarc-production.up.railway.app/api/v1/anime";
 const JIKAN    = "https://api.jikan.moe/v4";
 const ANILIST  = "https://graphql.anilist.co"; // [NUEVO] API AniList GraphQL
 
