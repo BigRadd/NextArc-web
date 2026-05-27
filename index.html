@@ -127,6 +127,9 @@
           <div class="hero-dots" id="heroDots"></div>
         </div>
 
+        <!-- ── Fila de Géneros Interactiva ──────────────────────── -->
+        <div class="genre-filter-row" id="genreFilterRowHome"></div>
+
         <!-- ── PREMIUM: Episodios Nuevos de Hoy (Following) ─────── -->
         <section
           id="followingTodaySection"
@@ -561,7 +564,8 @@
                 id="videoPlayer"
                 src=""
                 allowfullscreen
-                allow="autoplay; fullscreen"
+                allow="autoplay; fullscreen; encrypted-media"
+                sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups-to-escape-sandbox"
                 style="display: none; width: 100%; height: 100%; border: none"
               ></iframe>
               <video
@@ -575,6 +579,23 @@
                   background: #000;
                 "
               ></video>
+            </div>
+
+            <div class="player-ep-nav" id="playerEpNav">
+              <button
+                class="pep-btn"
+                id="btnPrevEp"
+                onclick="navegarEpisodio(-1)"
+              >
+                <i class="fas fa-step-backward"></i> Anterior
+              </button>
+              <button
+                class="pep-btn pep-btn-next"
+                id="btnNextEp"
+                onclick="navegarEpisodio(1)"
+              >
+                Siguiente <i class="fas fa-step-forward"></i>
+              </button>
             </div>
 
             <div class="player-meta-block">
@@ -934,6 +955,117 @@
 
     <!-- Toast notification -->
     <div class="toast" id="toastMsg"></div>
+
+    <!-- ═══════════════════════════════════════════
+       BARRA INFERIOR MÓVIL (Bottom Nav)
+    ═══════════════════════════════════════════ -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav">
+      <button class="mbn-btn active" id="mbnHome" onclick="mbnGo('home')">
+        <i class="fas fa-home"></i>
+        <span>Inicio</span>
+      </button>
+      <button class="mbn-btn" id="mbnAiring" onclick="mbnGo('airing')">
+        <i class="fas fa-tv"></i>
+        <span>Emisión</span>
+      </button>
+      <button class="mbn-btn" id="mbnSearch" onclick="mbnToggleSearch()">
+        <i class="fas fa-search"></i>
+        <span>Buscar</span>
+      </button>
+      <button class="mbn-btn" id="mbnMore" onclick="mbnToggleLibrary()">
+        <i class="fas fa-bars"></i>
+        <span>Más</span>
+      </button>
+    </nav>
+
+    <!-- Menú "Más" — Biblioteca + extras -->
+    <div class="mobile-library-drawer" id="mobileLibraryDrawer">
+      <div class="mld-inner">
+        <div class="mld-title">Menú</div>
+        <button
+          class="mld-item"
+          onclick="
+            mbnGo('calendar');
+            mbnToggleLibrary();
+          "
+        >
+          <i class="fas fa-calendar-alt"></i> Calendario
+        </button>
+        <div class="mld-divider"></div>
+        <div class="mld-title">Biblioteca</div>
+        <button
+          class="mld-item"
+          onclick="
+            document.getElementById('sideFavorites').click();
+            mbnToggleLibrary();
+          "
+        >
+          <i class="fas fa-star"></i> Favoritos
+        </button>
+        <button
+          class="mld-item"
+          onclick="
+            document.getElementById('sidePlaylists').click();
+            mbnToggleLibrary();
+          "
+        >
+          <i class="fas fa-list-ul"></i> Mis Playlists
+        </button>
+        <button
+          class="mld-item"
+          onclick="
+            document.getElementById('sideFollowing').click();
+            mbnToggleLibrary();
+          "
+        >
+          <i class="fas fa-bell"></i> Siguiendo
+        </button>
+      </div>
+    </div>
+
+    <!-- Buscador móvil (desplegable zona pulgar) -->
+    <div class="mobile-search-drawer" id="mobileSearchDrawer">
+      <div class="msd-inner">
+        <div class="msd-bar">
+          <i class="fas fa-search msd-icon"></i>
+          <input
+            type="text"
+            id="mobileSearchInput"
+            class="msd-input"
+            placeholder="Buscar anime..."
+            autocomplete="off"
+          />
+          <button class="msd-close" onclick="mbnToggleSearch()">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Flechas del Hero Banner -->
+    <button
+      class="hero-arrow hero-arrow-left"
+      id="heroArrowLeft"
+      onclick="goToHeroSlide(heroIndex - 1)"
+      aria-label="Anterior"
+    >
+      <i class="fas fa-chevron-left"></i>
+    </button>
+    <button
+      class="hero-arrow hero-arrow-right"
+      id="heroArrowRight"
+      onclick="goToHeroSlide(heroIndex + 1)"
+      aria-label="Siguiente"
+    >
+      <i class="fas fa-chevron-right"></i>
+    </button>
+
+    <!-- Fila de géneros interactiva -->
+    <div
+      id="genreFilterRow"
+      class="genre-filter-row"
+      style="display: none"
+    ></div>
 
     <script src="app.js"></script>
   </body>
