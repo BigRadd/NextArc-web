@@ -915,7 +915,10 @@ function mostrarVista(vista) {
 
 // ─── HERO BANNER ──────────────────────────────
 function buildHero() {
-  heroAnimes = localAnimeData.slice(0, 6).filter(a => a.images?.jpg?.large_image_url);
+  // Si loadAnime ya asignó heroAnimes, usarlos; si no, tomar los primeros 6 del catálogo
+  if (!heroAnimes.length) {
+    heroAnimes = localAnimeData.slice(0, 6).filter(a => a.images?.jpg?.large_image_url);
+  }
   if (!heroAnimes.length) return;
 
   const banner = document.getElementById("heroBanner");
@@ -935,8 +938,23 @@ function buildHero() {
     dotsEl.appendChild(dot);
   });
 
+  // ── Mover flechas dentro del banner ──
+  const arrowL = document.getElementById("heroArrowLeft");
+  const arrowR = document.getElementById("heroArrowRight");
+  if (arrowL) banner.appendChild(arrowL);
+  if (arrowR) banner.appendChild(arrowR);
+
+  // ── Swipe táctil ──
+  let _txStart = 0;
+  banner.addEventListener("touchstart", e => { _txStart = e.touches[0].clientX; }, { passive: true });
+  banner.addEventListener("touchend", e => {
+    const diff = _txStart - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 40) goToHeroSlide(heroIndex + (diff > 0 ? 1 : -1));
+  }, { passive: true });
+
   updateHeroContent(0);
   startHeroTimer();
+  buildGenreFilter();
 }
 
 function goToHeroSlide(idx) {
@@ -982,13 +1000,58 @@ function esContenidoAdulto(anime) {
 }
 
 // ─── CATÁLOGO ─────────────────────────────────
+
+// Fuentes rotativas para el catálogo y el hero
+const HERO_SOURCES = [
+  `${JIKAN}/top/anime?limit=25&filter=airing`,
+  `${JIKAN}/top/anime?limit=25&filter=bypopularity`,
+  `${JIKAN}/top/anime?limit=25&filter=favorite`,
+  `${JIKAN}/seasons/now?limit=25`,
+  `${JIKAN}/top/anime?limit=25&page=2`,
+  `${JIKAN}/top/anime?limit=25&page=3`,
+];
+
+function _heroSourceIndex() {
+  // Rota la fuente cada día distinto + aleatorio por sesión
+  const dayKey = new Date().toISOString().slice(0, 10); // "2025-06-01"
+  const stored = sessionStorage.getItem("rik_hero_src");
+  if (stored) return parseInt(stored);
+  const idx = (new Date().getDate() + Math.floor(Math.random() * HERO_SOURCES.length)) % HERO_SOURCES.length;
+  sessionStorage.setItem("rik_hero_src", idx);
+  return idx;
+}
+
 async function loadAnime() {
   try {
-    const res  = await fetch(`${JIKAN}/top/anime?limit=24`);
-    const data = await res.json();
-    localAnimeData    = (data.data || []).filter(a => !esContenidoAdulto(a));
+    // Fuente principal del catálogo (siempre top para el grid)
+    const resMain = await fetch(`${JIKAN}/top/anime?limit=24`);
+    const dataMain = await resMain.json();
+    localAnimeData    = (dataMain.data || []).filter(a => !esContenidoAdulto(a));
     filteredAnimeData = localAnimeData;
     renderGrid(filteredAnimeData);
+
+    // Fuente del hero: diferente cada sesión/día
+    const heroIdx = _heroSourceIndex();
+    const resHero = await fetch(HERO_SOURCES[heroIdx]);
+    const dataHero = await resHero.json();
+    const heroPool = (dataHero.data || []).filter(a =>
+      !esContenidoAdulto(a) && a.images?.jpg?.large_image_url
+    );
+
+    // Mezclar el pool aleatoriamente y tomar 6
+    for (let i = heroPool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [heroPool[i], heroPool[j]] = [heroPool[j], heroPool[i]];
+    }
+
+    // Agregar al localAnimeData sin duplicados
+    heroPool.forEach(a => {
+      if (!localAnimeData.find(x => x.mal_id === a.mal_id)) localAnimeData.push(a);
+    });
+
+    // Sobreescribir heroAnimes con el pool rotativo
+    heroAnimes = heroPool.slice(0, 6);
+
     buildHero();
     loadSidebarAiring();
     renderFollowingToday();
@@ -3073,3 +3136,244 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
+
+// ═══════════════════════════════════════════════════
+// NUEVAS FUNCIONALIDADES MÓVIL v2 — RikAnime
+// ═══════════════════════════════════════════════════
+
+// ── Bottom Nav Móvil ─────────────────────────────
+function mbnGo(dest) {
+  document.querySelectorAll(".mbn-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById("mobileSearchDrawer")?.classList.remove("open");
+  document.getElementById("mobileLibraryDrawer")?.classList.remove("open");
+
+  if (dest === "home") {
+    document.getElementById("mbnHome")?.classList.add("active");
+    setSearchState("idle");
+    mostrarVista("homeView");
+    document.getElementById("sideHome")?.click();
+  } else if (dest === "airing") {
+    document.getElementById("mbnAiring")?.classList.add("active");
+    document.getElementById("sideAiring")?.click();
+  } else if (dest === "calendar") {
+    document.getElementById("sideCalendar")?.click();
+  }
+}
+
+function mbnToggleLibrary() {
+  const drawer  = document.getElementById("mobileLibraryDrawer");
+  const searchD = document.getElementById("mobileSearchDrawer");
+  const btn     = document.getElementById("mbnMore");
+  const isOpen  = drawer?.classList.contains("open");
+
+  document.querySelectorAll(".mbn-btn").forEach(b => b.classList.remove("active"));
+  searchD?.classList.remove("open");
+
+  if (isOpen) {
+    drawer.classList.remove("open");
+  } else {
+    drawer.classList.add("open");
+    btn?.classList.add("active");
+  }
+}
+
+function mbnToggleSearch() {
+  const drawer = document.getElementById("mobileSearchDrawer");
+  const btn    = document.getElementById("mbnSearch");
+  const isOpen = drawer?.classList.contains("open");
+
+  document.querySelectorAll(".mbn-btn").forEach(b => b.classList.remove("active"));
+
+  if (isOpen) {
+    drawer.classList.remove("open");
+  } else {
+    drawer.classList.add("open");
+    btn?.classList.add("active");
+    setTimeout(() => document.getElementById("mobileSearchInput")?.focus(), 320);
+  }
+}
+
+// Conectar el input móvil a buscarPorNombreYVer
+document.addEventListener("DOMContentLoaded", () => {
+  const msi = document.getElementById("mobileSearchInput");
+  if (msi) {
+    let _msiTimer = null;
+    msi.addEventListener("input", () => {
+      clearTimeout(_msiTimer);
+      _msiTimer = setTimeout(() => {
+        const q = msi.value.trim();
+        if (q) {
+          buscarPorNombreYVer(q);
+          document.getElementById("mobileSearchDrawer")?.classList.remove("open");
+          document.querySelectorAll(".mbn-btn").forEach(b => b.classList.remove("active"));
+        }
+      }, 320);
+    });
+    msi.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        const q = msi.value.trim();
+        if (q) {
+          buscarPorNombreYVer(q);
+          document.getElementById("mobileSearchDrawer")?.classList.remove("open");
+          document.querySelectorAll(".mbn-btn").forEach(b => b.classList.remove("active"));
+        }
+      }
+    });
+  }
+});
+
+// ── Navegación Anterior / Siguiente Episodio ─────
+function navegarEpisodio(delta) {
+  const lista = animeActualBackend?.episodes ||
+                animeActualBackend?.list ||
+                animeActualBackend?.episodeList || [];
+  if (!lista.length) return;
+
+  const idx = lista.findIndex(e => String(e.number) === String(numeroEpisodioActual));
+  if (idx === -1) return;
+
+  const newIdx = idx + delta;
+  if (newIdx < 0 || newIdx >= lista.length) return;
+
+  const ep = lista[newIdx];
+  procesarStreamingEpisodio({
+    url:    ep.url    || "",
+    number: ep.number || (newIdx + 1),
+    title:  ep.title  || `Episodio ${ep.number || newIdx + 1}`,
+  });
+}
+
+function actualizarBotonesEpNav() {
+  const lista = animeActualBackend?.episodes ||
+                animeActualBackend?.list ||
+                animeActualBackend?.episodeList || [];
+  const btnPrev = document.getElementById("btnPrevEp");
+  const btnNext = document.getElementById("btnNextEp");
+  if (!btnPrev || !btnNext) return;
+
+  const idx = lista.findIndex(e => String(e.number) === String(numeroEpisodioActual));
+  btnPrev.disabled = idx <= 0;
+  btnNext.disabled = idx === -1 || idx >= lista.length - 1;
+}
+
+// ── Fila de Géneros Interactiva ──────────────────
+const GENEROS_PRINCIPALES = [
+  "Acción","Aventura","Comedia","Drama","Fantasía","Romance",
+  "Suspenso","Terror","Ciencia Ficción","Magia","Deportes","Misterio",
+  "Slice of Life","Sobrenatural","Psicológico","Isekai",
+];
+
+let generoActivo = null;
+
+function buildGenreFilter() {
+  const row = document.getElementById("genreFilterRowHome");
+  if (!row) return;
+  row.innerHTML = "";
+
+  // Botón "Todos"
+  const all = document.createElement("button");
+  all.className = "genre-pill active";
+  all.textContent = "✦ Todos";
+  all.onclick = () => filtrarPorGenero(null, all);
+  row.appendChild(all);
+
+  GENEROS_PRINCIPALES.forEach(g => {
+    const pill = document.createElement("button");
+    pill.className = "genre-pill";
+    pill.textContent = g;
+    pill.onclick = () => filtrarPorGenero(g, pill);
+    row.appendChild(pill);
+  });
+}
+
+// IDs de géneros en MAL/Jikan
+const GEN_MAP = {
+  "Acción":          { en: ["Action"],              id: 1  },
+  "Aventura":        { en: ["Adventure"],            id: 2  },
+  "Comedia":         { en: ["Comedy"],               id: 4  },
+  "Drama":           { en: ["Drama"],                id: 8  },
+  "Fantasía":        { en: ["Fantasy"],              id: 10 },
+  "Romance":         { en: ["Romance"],              id: 22 },
+  "Suspenso":        { en: ["Thriller","Suspense"],  id: 41 },
+  "Terror":          { en: ["Horror"],               id: 14 },
+  "Ciencia Ficción": { en: ["Sci-Fi","Science Fiction"], id: 24 },
+  "Magia":           { en: ["Magic"],                id: 16 },
+  "Deportes":        { en: ["Sports"],               id: 30 },
+  "Misterio":        { en: ["Mystery"],              id: 7  },
+  "Slice of Life":   { en: ["Slice of Life"],        id: 36 },
+  "Sobrenatural":    { en: ["Supernatural"],         id: 37 },
+  "Psicológico":     { en: ["Psychological"],        id: 40 },
+  "Isekai":          { en: ["Isekai"],               id: 62 },
+};
+
+const _genreCache = {}; // genero → resultados ya descargados
+
+async function filtrarPorGenero(genero, pillEl) {
+  generoActivo = genero;
+  document.querySelectorAll(".genre-pill").forEach(p => p.classList.remove("active"));
+  pillEl.classList.add("active");
+
+  if (!genero) {
+    renderGrid(filteredAnimeData);
+    return;
+  }
+
+  const meta    = GEN_MAP[genero];
+  const aliases = meta?.en || [genero];
+
+  // 1) Primero mostrar lo que ya hay en memoria al instante
+  const local = localAnimeData.filter(a =>
+    Array.isArray(a.genres) && a.genres.some(g => aliases.includes(g.name))
+  );
+  if (local.length) renderGrid(local);
+
+  // 2) Si ya tenemos caché de Jikan para este género, usarlo directamente
+  if (_genreCache[genero]) {
+    renderGrid(_genreCache[genero]);
+    if (_genreCache[genero].length === 0)
+      showToast(`No se encontraron animes de "${genero}"`, "error");
+    return;
+  }
+
+  // 3) Consultar Jikan por genre_id (trae hasta 25 resultados por página)
+  if (!meta?.id) {
+    if (!local.length) showToast(`No hay animes de "${genero}" cargados`, "error");
+    return;
+  }
+
+  try {
+    const [p1, p2] = await Promise.all([
+      fetch(`${JIKAN}/anime?genres=${meta.id}&order_by=score&sort=desc&limit=25&page=1`).then(r => r.json()),
+      fetch(`${JIKAN}/anime?genres=${meta.id}&order_by=score&sort=desc&limit=25&page=2`).then(r => r.json()),
+    ]);
+
+    const nuevos = [...(p1.data || []), ...(p2.data || [])]
+      .filter(a => !esContenidoAdulto(a));
+
+    // Merge en localAnimeData sin duplicados
+    nuevos.forEach(a => {
+      if (!localAnimeData.find(x => x.mal_id === a.mal_id)) localAnimeData.push(a);
+    });
+
+    // Combinar locales + jikan para este género
+    const todos = localAnimeData.filter(a =>
+      Array.isArray(a.genres) && a.genres.some(g => aliases.includes(g.name))
+    );
+
+    _genreCache[genero] = todos;
+    renderGrid(todos);
+
+    if (!todos.length) showToast(`No se encontraron animes de "${genero}"`, "error");
+  } catch (err) {
+    console.warn("[Géneros]", err.message);
+    if (!local.length) showToast(`Error al buscar "${genero}"`, "error");
+  }
+}
+
+// Llamar actualizarBotonesEpNav cada vez que se carga un episodio
+// Se engancha dentro de procesarStreamingEpisodio — patch no destructivo
+const _origPSE = procesarStreamingEpisodio;
+procesarStreamingEpisodio = async function(episodeObj) {
+  await _origPSE(episodeObj);
+  actualizarBotonesEpNav();
+};
