@@ -5128,3 +5128,21 @@ html, body {
   .seek-feedback i    { font-size: 2rem; }
   .seek-feedback span { font-size: 0.9rem; }
 }
+
+/* ═══════════════════════════════════════════════════
+   TOUCH SEEK OVERLAY — Capa sobre iframe en móvil
+   ═══════════════════════════════════════════════════ */
+#touchSeekOverlay {
+  /* Posición y z-index ya definidos por JS inline */
+  /* Solo aseguramos que no bloquee la interacción cuando no sea necesario */
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* En desktop nunca mostrar el overlay táctil */
+@media (hover: hover) and (pointer: fine) {
+  #touchSeekOverlay {
+    display: none !important;
+  }
+}
