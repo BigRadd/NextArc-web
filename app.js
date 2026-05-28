@@ -1903,78 +1903,156 @@ document.addEventListener("keydown", function(e) {
 });
 
 // ── Toque doble (Móvil) ────────────────────────────
-// Toque en la mitad izquierda = -10s | mitad derecha = +10s
-// Un solo toque en el centro = play/pause (solo nativo)
+// El problema con iframes: capturan todos los eventos táctiles.
+// Solución: una capa overlay ENCIMA del iframe que intercepta toques,
+// procesa el seek, y se desactiva temporalmente para pasar el toque al iframe.
 (function _initTouchSeek() {
   let _tapTimer    = null;
   let _tapCount    = 0;
   let _tapSide     = null;
-  let _tapAccum    = 0;       // segundos acumulados en toques rápidos
+  let _tapAccum    = 0;
+  let _overlay     = null;
+  let _passThrough = false; // cuando true, el overlay está "transparente"
 
-  function _attachTouchSeek() {
+  function _getOrCreateOverlay() {
+    if (_overlay) return _overlay;
     const wrap = document.getElementById("playerVideoWrap");
-    if (!wrap || wrap._touchSeekAttached) return;
-    wrap._touchSeekAttached = true;
+    if (!wrap) return null;
 
-    wrap.addEventListener("touchend", function(e) {
-      const pv = document.getElementById("playerView");
-      if (!pv || pv.style.display === "none") return;
+    _overlay = document.createElement("div");
+    _overlay.id = "touchSeekOverlay";
+    _overlay.style.cssText = [
+      "position:absolute",
+      "inset:0",
+      "z-index:15",          // encima del iframe (z-index:0) pero debajo de botones (z-index:20+)
+      "touch-action:none",   // evita scroll accidental
+      "background:transparent",
+      "cursor:default",
+    ].join(";");
+    wrap.appendChild(_overlay);
+    return _overlay;
+  }
 
-      // Ignorar si el toque fue sobre un botón/overlay interno
-      if (e.target.closest("button, .autoplay-card, .seek-feedback")) return;
+  // Deshabilita el overlay brevemente para que el toque llegue al iframe
+  function _passThroughOnce(ms) {
+    if (!_overlay) return;
+    _passThrough = true;
+    _overlay.style.pointerEvents = "none";
+    setTimeout(() => {
+      _passThrough = false;
+      if (_overlay) _overlay.style.pointerEvents = "auto";
+    }, ms || 350);
+  }
 
-      const rect  = wrap.getBoundingClientRect();
-      const touchX = e.changedTouches[0].clientX;
-      const relX   = (touchX - rect.left) / rect.width;
+  function _handleTap(touchX, wrapRect) {
+    const relX = (touchX - wrapRect.left) / wrapRect.width;
 
-      // Zona central (40-60%): play/pause con un solo toque
-      const side = relX < 0.4 ? "left" : (relX > 0.6 ? "right" : "center");
+    // Dividir en 3 zonas: izquierda (<35%), derecha (>65%), centro
+    const side = relX < 0.35 ? "left" : (relX > 0.65 ? "right" : "center");
 
-      if (side === "center") {
-        // Un solo toque en centro: play/pause en nativo, ignorar en iframe
-        clearTimeout(_tapTimer);
-        _tapTimer = setTimeout(() => {
-          const v = _getNativeVideo();
-          if (v) { v.paused ? v.play() : v.pause(); }
-        }, 220);
-        return;
-      }
-
-      // Doble (o múltiple) toque en los laterales
-      if (_tapSide !== side) {
-        // Cambió de lado: reiniciar acumulador
-        _tapCount  = 0;
-        _tapAccum  = 0;
-        _tapSide   = side;
-      }
-
+    if (side === "center") {
+      // Toque en centro: play/pause nativo, o pasar al iframe
       clearTimeout(_tapTimer);
-      _tapCount++;
-      const delta  = side === "right" ? SEEK_SECONDS : -SEEK_SECONDS;
-      _tapAccum   += delta;
-
       _tapTimer = setTimeout(() => {
-        if (_tapCount >= 2) {
-          // Doble toque confirmado
-          if (seekVideo(_tapAccum)) _showSeekFeedback(side, _tapAccum);
+        const v = _getNativeVideo();
+        if (v) {
+          v.paused ? v.play() : v.pause();
+        } else {
+          // Iframe: pasar el toque
+          _passThroughOnce(400);
         }
-        // Primer toque solo: mostrar controles nativos (no hacemos nada extra)
         _tapCount = 0;
         _tapAccum = 0;
         _tapSide  = null;
-      }, 280);
+      }, 260);
+      return;
+    }
 
+    // Laterales: acumular toques
+    if (_tapSide !== side) {
+      _tapCount = 0;
+      _tapAccum = 0;
+      _tapSide  = side;
+    }
+
+    clearTimeout(_tapTimer);
+    _tapCount++;
+    const delta = side === "right" ? SEEK_SECONDS : -SEEK_SECONDS;
+    _tapAccum  += delta;
+
+    _tapTimer = setTimeout(() => {
+      if (_tapCount >= 2) {
+        // Seek confirmado
+        const v = _getNativeVideo();
+        if (v) {
+          // Video nativo: seek real
+          if (seekVideo(_tapAccum)) _showSeekFeedback(side, _tapAccum);
+        } else {
+          // Iframe: solo feedback visual (seek no es posible cross-origin)
+          _showSeekFeedback(side, _tapAccum);
+          showToast(`${_tapAccum > 0 ? "⏩" : "⏪"} Control de tiempo no disponible en este servidor`);
+        }
+      } else {
+        // Un solo toque: pasar al iframe normalmente
+        _passThroughOnce(400);
+      }
+      _tapCount = 0;
+      _tapAccum = 0;
+      _tapSide  = null;
+    }, 260);
+  }
+
+  function _attachTouchSeek() {
+    const wrap = document.getElementById("playerVideoWrap");
+    if (!wrap) return;
+
+    // Solo en móvil / touch
+    if (!("ontouchstart" in window) && navigator.maxTouchPoints === 0) return;
+
+    const ov = _getOrCreateOverlay();
+    if (!ov || ov._touchAttached) return;
+    ov._touchAttached = true;
+
+    // touchstart: registrar posición inicial
+    let _startX = 0;
+    let _startY = 0;
+    let _moved  = false;
+
+    ov.addEventListener("touchstart", function(e) {
+      _startX = e.touches[0].clientX;
+      _startY = e.touches[0].clientY;
+      _moved  = false;
+    }, { passive: true });
+
+    ov.addEventListener("touchmove", function(e) {
+      const dx = Math.abs(e.touches[0].clientX - _startX);
+      const dy = Math.abs(e.touches[0].clientY - _startY);
+      if (dx > 8 || dy > 8) _moved = true;
+    }, { passive: true });
+
+    ov.addEventListener("touchend", function(e) {
+      const pv = document.getElementById("playerView");
+      if (!pv || pv.style.display === "none") return;
+      if (_moved) return; // fue un scroll/swipe, ignorar
+
+      // Ignorar toques sobre botones internos
+      if (e.target.closest("button, .autoplay-card")) return;
+
+      _handleTap(e.changedTouches[0].clientX, wrap.getBoundingClientRect());
     }, { passive: true });
   }
 
-  // Adjuntar cuando el DOM esté listo, y re-adjuntar si la vista cambia
-  document.addEventListener("DOMContentLoaded", _attachTouchSeek);
-  // También intentar adjuntar cuando se muestra el playerView
+  // Inicializar
+  document.addEventListener("DOMContentLoaded", function() {
+    setTimeout(_attachTouchSeek, 300);
+  });
+
+  // Re-adjuntar cuando se muestra el playerView
   const _origMostrarVista = window.mostrarVista;
   if (typeof _origMostrarVista === "function") {
     window.mostrarVista = function(vista) {
       _origMostrarVista(vista);
-      if (vista === "playerView") setTimeout(_attachTouchSeek, 100);
+      if (vista === "playerView") setTimeout(_attachTouchSeek, 200);
     };
   }
 })();
