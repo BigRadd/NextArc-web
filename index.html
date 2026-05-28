@@ -3,9 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RikAnime — Tu plataforma de anime</title>
-    <link rel="icon" type="image/png" href="favicon.jpeg" />
-    <link rel="icon" href="data:," />
+    <title>RikAnime - Ver Anime Online</title>
+    <link rel="icon" type="image/png" href="public/favicon.png" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
@@ -18,7 +17,11 @@
   ═══════════════════════════════════════════ -->
     <header class="header">
       <div class="logo" id="brandLogo">
-        <span class="logo-text">Rik<span class="logo-accent">Anime</span></span>
+        <img
+          src="public/RikAnime - Logo.png"
+          alt="RikAnime"
+          class="main-logo"
+        />
       </div>
 
       <nav class="nav-tabs">
@@ -133,6 +136,61 @@
         <!-- ── Fila de Géneros Interactiva ──────────────────────── -->
         <div class="genre-filter-row" id="genreFilterRowHome"></div>
 
+        <!-- ── CAPÍTULOS RECIENTES ─────────────────────────────────── -->
+        <section class="section recent-eps-section" id="recentEpsSection">
+          <div class="section-header">
+            <h2 class="section-title">
+              <i
+                class="fas fa-film"
+                style="color: var(--accent); margin-right: 0.5rem"
+              ></i>
+              Capítulos Recientes
+            </h2>
+            <span
+              id="recentEpsStatus"
+              style="color: var(--text-muted); font-size: 0.82rem"
+            ></span>
+          </div>
+          <div class="recent-eps-grid" id="recentEpsGrid">
+            <!-- skeletons -->
+            <div class="rec-ep-card skeleton">
+              <div class="rec-ep-thumb"></div>
+              <div class="rec-ep-info">
+                <div class="rec-ep-title-skel"></div>
+                <div class="rec-ep-sub-skel"></div>
+              </div>
+            </div>
+            <div class="rec-ep-card skeleton">
+              <div class="rec-ep-thumb"></div>
+              <div class="rec-ep-info">
+                <div class="rec-ep-title-skel"></div>
+                <div class="rec-ep-sub-skel"></div>
+              </div>
+            </div>
+            <div class="rec-ep-card skeleton">
+              <div class="rec-ep-thumb"></div>
+              <div class="rec-ep-info">
+                <div class="rec-ep-title-skel"></div>
+                <div class="rec-ep-sub-skel"></div>
+              </div>
+            </div>
+            <div class="rec-ep-card skeleton">
+              <div class="rec-ep-thumb"></div>
+              <div class="rec-ep-info">
+                <div class="rec-ep-title-skel"></div>
+                <div class="rec-ep-sub-skel"></div>
+              </div>
+            </div>
+            <div class="rec-ep-card skeleton">
+              <div class="rec-ep-thumb"></div>
+              <div class="rec-ep-info">
+                <div class="rec-ep-title-skel"></div>
+                <div class="rec-ep-sub-skel"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- ── PREMIUM: Episodios Nuevos de Hoy (Following) ─────── -->
         <section
           id="followingTodaySection"
@@ -196,9 +254,7 @@
         <!-- Catálogo Principal -->
         <section class="section">
           <div class="section-header">
-            <h2 class="section-title" id="catalogTitle">
-              Animes Más Populares
-            </h2>
+            <h2 class="section-title" id="catalogTitle">Animes Populares</h2>
             <span
               id="catalogCount"
               style="color: var(--text-muted); font-size: 0.85rem"
@@ -458,6 +514,7 @@
             <div class="details-poster" id="detPoster"></div>
             <div class="details-info">
               <h1 class="details-title" id="detTitle">Buscando...</h1>
+              <div class="details-alt-title" id="detAltTitle"></div>
               <div class="details-meta" id="detMeta"></div>
               <p
                 id="detSynopsis"
@@ -651,13 +708,6 @@
                   background: #000;
                 "
               ></video>
-              <!-- Keyboard shortcuts hint (PC, visible on hover) -->
-              <div class="seek-kb-hint" id="seekKbHint">
-                <div><kbd>←</kbd> / <kbd>→</kbd> &nbsp;±10 seg</div>
-                <div><kbd>Space</kbd> &nbsp;Play / Pause</div>
-                <div><kbd>↑</kbd> / <kbd>↓</kbd> &nbsp;Volumen</div>
-                <div><kbd>F</kbd> &nbsp;Pantalla completa</div>
-              </div>
             </div>
 
             <div class="player-ep-nav" id="playerEpNav">
@@ -674,6 +724,14 @@
                 onclick="navegarEpisodio(1)"
               >
                 Siguiente <i class="fas fa-step-forward"></i>
+              </button>
+              <!-- Botón Modo Cine — visible junto a navegación de episodios -->
+              <button
+                class="cinema-mode-btn"
+                id="cinemaModeBtn"
+                onclick="toggleCinemaMode()"
+              >
+                <i class="fas fa-film"></i>
               </button>
             </div>
 
@@ -1370,6 +1428,12 @@
       style="display: none"
     ></div>
 
+    <!-- Modo Cine: capa oscura sobre todo excepto el video -->
+    <div
+      class="cinema-overlay"
+      id="cinemaOverlay"
+      onclick="toggleCinemaMode()"
+    ></div>
     <script src="app.js"></script>
   </body>
 </html>
