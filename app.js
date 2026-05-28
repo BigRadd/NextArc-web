@@ -11,15 +11,23 @@
 "use strict";
 
 // ─── CONFIGURACIÓN ────────────────────────────
-const API_KEY  = "dev-anime1v-key";
-const BASE_URL = "https://nextarc-production.up.railway.app/api/v1/anime";
-const JIKAN    = "https://api.jikan.moe/v4";
-const ANILIST  = "https://graphql.anilist.co"; // [NUEVO] API AniList GraphQL
+const API_KEY   = "dev-anime1v-key";
+const BASE_URL  = "https://nextarc-production.up.railway.app/api/v1/anime";
+const USERS_URL = "https://nextarc-production.up.railway.app/api/users";
+const JIKAN     = "https://api.jikan.moe/v4";
+const ANILIST   = "https://graphql.anilist.co";
 
 const apiHeaders = {
   "X-API-Key": API_KEY,
   "Content-Type": "application/json",
 };
+
+function authHeaders() {
+  const token = localStorage.getItem("rik_jwt");
+  return token
+    ? { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }
+    : { "Content-Type": "application/json" };
+}
 
 // ─── ESTADO GLOBAL ────────────────────────────
 let localAnimeData       = [];   // catálogo completo de Jikan
@@ -63,7 +71,132 @@ const aniListEpCache  = {};   // malId → array de { title, thumbnail }
 // ─── [NUEVO] CONTADOR DE PRÓXIMO EPISODIO ─────
 let _nextEpIntervalId = null; // para limpiar el setInterval al cambiar de anime
 
-// ─── USUARIO / AUTH (localStorage) ───────────
+// ═══════════════════════════════════════════════════
+// SISTEMA DE LIKES LOCALES (sin cuenta obligatoria)
+// ═══════════════════════════════════════════════════
+const LOCAL_LIKES_KEY = "rik_local_likes";
+
+function getLocalHistory() {
+  // Historial para usuarios sin cuenta guardado en localStorage
+  try { return JSON.parse(localStorage.getItem("rik_local_history") || "[]"); }
+  catch(e) { return []; }
+}
+
+function saveLocalHistory(arr) {
+  localStorage.setItem("rik_local_history", JSON.stringify(arr));
+}
+
+// Guardar historial local (sin cuenta)
+function saveLocalHistoryEntry(malId, epNumber, time) {
+  const history = getLocalHistory();
+  const key = `${malId}_${epNumber}`;
+  const idx = history.findIndex(h => h.key === key);
+  const entry = { key, mal_id: malId, episode: epNumber, time, updatedAt: Date.now() };
+  if (idx > -1) history[idx] = entry;
+  else history.push(entry);
+  saveLocalHistory(history);
+}
+
+function getLocalLikes() {
+  try { return JSON.parse(localStorage.getItem(LOCAL_LIKES_KEY) || "[]"); }
+  catch(e) { return []; }
+}
+
+function saveLocalLikes(arr) {
+  localStorage.setItem(LOCAL_LIKES_KEY, JSON.stringify(arr));
+}
+
+function isLocalLiked(malId) {
+  return getLocalLikes().some(l => l.mal_id == malId);
+}
+
+function toggleLocalLike(animeObj) {
+  const likes = getLocalLikes();
+  const idx   = likes.findIndex(l => l.mal_id == animeObj.mal_id);
+  if (idx > -1) {
+    likes.splice(idx, 1);
+    showToast(`"${animeObj.title}" eliminado de Me gusta`);
+  } else {
+    likes.push({
+      mal_id: animeObj.mal_id,
+      title:  animeObj.title,
+      image:  animeObj.images?.jpg?.image_url || "",
+      score:  animeObj.score,
+      type:   animeObj.type,
+      likedAt: Date.now(),
+    });
+    showToast(`💖 "${animeObj.title}" agregado a Me gusta`);
+  }
+  saveLocalLikes(likes);
+  // Actualizar todos los botones de corazón visibles
+  document.querySelectorAll(`.like-heart-btn[data-mal="${animeObj.mal_id}"]`).forEach(btn => {
+    _updateLikeBtn(btn, isLocalLiked(animeObj.mal_id));
+  });
+  renderLocalLikesSection();
+}
+
+function _updateLikeBtn(btn, liked) {
+  const icon = btn.querySelector("i");
+  if (!icon) return;
+  if (liked) {
+    icon.className = "fas fa-heart";
+    btn.classList.add("liked");
+    btn.title = "Quitar Me gusta";
+  } else {
+    icon.className = "far fa-heart";
+    btn.classList.remove("liked");
+    btn.title = "Me gusta";
+  }
+}
+
+// Crea el botón de corazón flotante sobre la portada
+function createLikeBtn(animeObj) {
+  const btn = document.createElement("button");
+  btn.className = "like-heart-btn";
+  btn.dataset.mal = animeObj.mal_id;
+  btn.title = isLocalLiked(animeObj.mal_id) ? "Quitar Me gusta" : "Me gusta";
+  btn.innerHTML = `<i class="${isLocalLiked(animeObj.mal_id) ? "fas" : "far"} fa-heart"></i>`;
+  if (isLocalLiked(animeObj.mal_id)) btn.classList.add("liked");
+  btn.addEventListener("click", e => {
+    e.stopPropagation();
+    toggleLocalLike(animeObj);
+  });
+  return btn;
+}
+
+// Renderiza la sección "Animes que te gustan" en el Home
+function renderLocalLikesSection() {
+  const section = document.getElementById("localLikesSection");
+  const grid    = document.getElementById("localLikesGrid");
+  if (!section || !grid) return;
+
+  const likes = getLocalLikes().sort((a, b) => (b.likedAt || 0) - (a.likedAt || 0));
+  if (!likes.length) { section.style.display = "none"; return; }
+  section.style.display = "block";
+
+  grid.innerHTML = "";
+  likes.forEach(f => {
+    const card = document.createElement("div");
+    card.className = "anime-card";
+    card.style.position = "relative";
+    card.innerHTML = `
+      <div class="anime-poster" style="background-image:url('${f.image}')">
+        <span class="anime-type-badge">${f.type || "TV"}</span>
+      </div>
+      <div class="anime-info">
+        <div class="anime-title">${f.title}</div>
+        <div class="anime-rating"><i class="fas fa-star"></i> ${f.score || "N/A"}</div>
+      </div>
+    `;
+    const likeBtn = createLikeBtn(f);
+    likeBtn.style.cssText = "position:absolute;top:8px;right:8px;z-index:3;";
+    card.querySelector(".anime-poster").appendChild(likeBtn);
+    card.addEventListener("click", () => verDetallesAnime(f.mal_id));
+    grid.appendChild(card);
+  });
+}
+
+// ─── USUARIO / AUTH (JWT + Railway) ──────────
 let currentUser = null;
 
 function loadUser() {
@@ -76,6 +209,42 @@ function loadUser() {
 function saveUser() {
   if (currentUser) localStorage.setItem("animeflix_user", JSON.stringify(currentUser));
   else localStorage.removeItem("animeflix_user");
+}
+
+// Sincronizar todos los datos del servidor al iniciar sesión
+async function syncUserFromServer() {
+  if (!localStorage.getItem("rik_jwt")) return;
+  try {
+    const res = await fetch(`${USERS_URL}/me`, { headers: authHeaders() });
+    if (!res.ok) { doLogout(); return; }
+    const data = await res.json();
+    if (!data.success) return;
+
+    currentUser = {
+      ...data.user,
+      favorites:  data.favorites  || [],
+      following:  data.following  || [],
+      history:    data.history    || [],
+      playlists:  data.playlists  || [],
+    };
+    saveUser();
+    refreshFavViews();
+    renderFollowingToday();
+    renderContinueWatching();
+    renderPlaylists();
+  } catch(e) {
+    console.warn("[Auth] Sync falló:", e.message);
+  }
+}
+
+// Enviar una actualización al servidor sin bloquear la UI
+function _pushToServer(method, path, body) {
+  if (!localStorage.getItem("rik_jwt")) return;
+  fetch(`${USERS_URL}${path}`, {
+    method,
+    headers: authHeaders(),
+    body: body ? JSON.stringify(body) : undefined,
+  }).catch(e => console.warn("[Sync]", e.message));
 }
 
 function getFavorites() {
@@ -96,15 +265,18 @@ function toggleFavorite(animeObj) {
   if (idx > -1) {
     currentUser.favorites.splice(idx, 1);
     showToast(`"${animeObj.title}" eliminado de favoritos`);
+    _pushToServer("DELETE", `/favorites/${animeObj.mal_id}`);
   } else {
-    currentUser.favorites.push({
+    const entry = {
       mal_id: animeObj.mal_id,
       title:  animeObj.title,
       image:  animeObj.images?.jpg?.image_url || "",
       score:  animeObj.score,
       type:   animeObj.type,
-    });
+    };
+    currentUser.favorites.push(entry);
     showToast(`"${animeObj.title}" agregado a favoritos ★`);
+    _pushToServer("POST", "/favorites", entry);
   }
   saveUser();
   refreshFavViews();
@@ -114,6 +286,22 @@ function toggleFavoriteFromDetail() {
   if (!animeActualMAL) return;
   toggleFavorite(animeActualMAL);
   updateFavBtn();
+}
+
+function toggleDetLike() {
+  if (!animeActualMAL) return;
+  toggleLocalLike(animeActualMAL);
+  updateDetLikeBtn();
+}
+
+function updateDetLikeBtn() {
+  const btn = document.getElementById("detLikeBtn");
+  if (!btn || !animeActualMAL) return;
+  const liked = isLocalLiked(animeActualMAL.mal_id);
+  btn.innerHTML = liked
+    ? '<i class="fas fa-heart"></i> Te gusta'
+    : '<i class="far fa-heart"></i> Me gusta';
+  btn.classList.toggle("det-like-active", liked);
 }
 
 function updateFavBtn() {
@@ -179,15 +367,18 @@ function toggleFollowing(animeObj) {
   if (idx > -1) {
     currentUser.following.splice(idx, 1);
     showToast(`Dejaste de seguir "${animeObj.title}"`);
+    _pushToServer("DELETE", `/following/${animeObj.mal_id}`);
   } else {
-    currentUser.following.push({
+    const entry = {
       mal_id:    animeObj.mal_id,
       title:     animeObj.title,
       image:     animeObj.images?.jpg?.image_url || "",
       broadcast: animeObj.broadcast || {},
       episodes:  animeObj.episodes || 0,
-    });
-    showToast(`Siguiendo "${animeObj.title}" \uD83D\uDD14`);
+    };
+    currentUser.following.push(entry);
+    showToast(`Siguiendo "${animeObj.title}" 🔔`);
+    _pushToServer("POST", "/following", entry);
   }
   saveUser();
   updateFollowBtn();
@@ -246,7 +437,7 @@ function renderFollowingToday() {
     return `
       <div class="anime-card" onclick="verDetallesAnime(${f.mal_id})" style="cursor:pointer;">
         <div class="anime-poster" style="background-image:url('${f.image}')">
-          <span class="anime-type-badge" style="background:rgba(0,212,170,0.9);color:#0a0a18;">
+          <span class="anime-type-badge" style="background:rgba(243,195,86,0.9);color:#0a0a18;">
             <i class="fas fa-broadcast-tower"></i> HOY
           </span>
         </div>
@@ -263,6 +454,8 @@ function renderFollowingToday() {
 
 // ─── HISTORIAL / CONTINUAR VIENDO ─────────────
 function saveHistory(malId, epNumber, currentTime) {
+  // Guardar localmente siempre (con o sin cuenta)
+  saveLocalHistoryEntry(malId, epNumber, currentTime);
   if (!currentUser) return;
   if (!currentUser.history) currentUser.history = [];
   const key = `${malId}_${epNumber}`;
@@ -271,6 +464,8 @@ function saveHistory(malId, epNumber, currentTime) {
   if (existing > -1) currentUser.history[existing] = entry;
   else currentUser.history.push(entry);
   saveUser();
+  // Sync silencioso al servidor cada 10s de progreso real
+  _pushToServer("PUT", "/history", { mal_id: malId, episode: epNumber, time_sec: currentTime });
 }
 
 function getHistoryEntry(malId, epNumber) {
@@ -368,6 +563,7 @@ function setSearchState(state) {
     renderGrid(filteredAnimeData);
     renderFollowingToday();
     renderContinueWatching();
+    renderLocalLikesSection();
   }
 }
 
@@ -831,42 +1027,84 @@ function switchUserTab(tab) {
   document.getElementById("panelProfile").classList.toggle("active", tab === "profile");
 }
 
-function doLogin() {
-  const user = document.getElementById("loginUser").value.trim();
-  const pass = document.getElementById("loginPass").value;
-  if (!user || !pass) { showToast("Completa todos los campos", "error"); return; }
+async function doLogin() {
+  const emailEl = document.getElementById("loginUser");
+  const passEl  = document.getElementById("loginPass");
+  const email   = emailEl?.value.trim();
+  const pass    = passEl?.value;
 
-  const stored = JSON.parse(localStorage.getItem(`animeflix_account_${user}`) || "null");
-  if (!stored || stored.password !== btoa(pass)) {
-    showToast("Usuario o contraseña incorrectos", "error"); return;
+  if (!email || !pass) { showToast("Completa todos los campos", "error"); return; }
+
+  const btn = document.querySelector("#panelLogin .btn-primary");
+  if (btn) { btn.disabled = true; btn.textContent = "Entrando..."; }
+
+  try {
+    const res  = await fetch(`${USERS_URL}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password: pass }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Error al iniciar sesión");
+
+    localStorage.setItem("rik_jwt", data.token);
+    currentUser = { ...data.user, favorites: [], following: [], history: [], playlists: [] };
+    saveUser();
+    await syncUserFromServer();
+    openUserSection();
+    showToast(`¡Bienvenido de nuevo, ${currentUser.username}!`);
+  } catch(err) {
+    showToast(err.message, "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Iniciar Sesión"; }
   }
-  currentUser = stored;
-  saveUser();
-  openUserSection();
-  showToast(`¡Bienvenido de nuevo, ${currentUser.username}!`);
 }
 
-function doRegister() {
-  const user = document.getElementById("regUser").value.trim();
-  const pass = document.getElementById("regPass").value;
-  if (!user || pass.length < 6) { showToast("Usuario o contraseña inválidos (mín. 6 caracteres)", "error"); return; }
-  if (localStorage.getItem(`animeflix_account_${user}`)) {
-    showToast("Ese nombre de usuario ya existe", "error"); return;
+async function doRegister() {
+  const userEl  = document.getElementById("regUser");
+  const emailEl = document.getElementById("regEmail");
+  const passEl  = document.getElementById("regPass");
+
+  const username = userEl?.value.trim();
+  const email    = emailEl?.value.trim();
+  const pass     = passEl?.value;
+
+  if (!username || !email || !pass) { showToast("Completa todos los campos", "error"); return; }
+  if (pass.length < 6) { showToast("Contraseña mínimo 6 caracteres", "error"); return; }
+
+  const btn = document.querySelector("#panelRegister .btn-primary");
+  if (btn) { btn.disabled = true; btn.textContent = "Creando cuenta..."; }
+
+  try {
+    const res  = await fetch(`${USERS_URL}/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, username, password: pass }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Error al registrarse");
+
+    localStorage.setItem("rik_jwt", data.token);
+    currentUser = { ...data.user, favorites: [], following: [], history: [], playlists: [] };
+    saveUser();
+    openUserSection();
+    showToast(`¡Cuenta creada! Bienvenido, ${username} 🎉`);
+  } catch(err) {
+    showToast(err.message, "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Crear Cuenta"; }
   }
-  const newAccount = { username: user, password: btoa(pass), favorites: [], following: [], history: [] };
-  localStorage.setItem(`animeflix_account_${user}`, JSON.stringify(newAccount));
-  currentUser = newAccount;
-  saveUser();
-  openUserSection();
-  showToast(`¡Cuenta creada! Bienvenido, ${user} 🎉`);
 }
 
 function doLogout() {
+  localStorage.removeItem("rik_jwt");
   currentUser = null;
   saveUser();
-  document.getElementById("userSection").style.display = "none";
-  document.getElementById("authSection").style.display = "block";
+  document.getElementById("userSection").style.display  = "none";
+  document.getElementById("authSection").style.display  = "block";
   showToast("Sesión cerrada");
+  renderContinueWatching();
+  renderFollowingToday();
 }
 
 function openUserSection() {
@@ -878,7 +1116,7 @@ function openUserSection() {
 }
 
 // ─── VISTAS ───────────────────────────────────
-const VIEWS = ["homeView", "detailsView", "airingView", "calendarView", "favoritesView", "playlistsView", "playerView"];
+const VIEWS = ["homeView", "detailsView", "airingView", "calendarView", "favoritesView", "playlistsView", "playerView", "directoryView"];
 
 function mostrarVista(vista) {
   // ── FIX: Detener audio/video al abandonar playerView por CUALQUIER vía ──
@@ -899,6 +1137,7 @@ function mostrarVista(vista) {
   if (vista === "calendarView")   document.getElementById("sideCalendar")?.classList.add("active");
   if (vista === "favoritesView")  document.getElementById("sideFavorites")?.classList.add("active");
   if (vista === "playlistsView")  document.getElementById("sidePlaylists")?.classList.add("active");
+  if (vista === "directoryView")  document.getElementById("sideDirectory")?.classList.add("active");
 
   if (vista === "detailsView") {
     document.getElementById("detailsContainer").style.display = "flex";
@@ -1083,6 +1322,7 @@ function renderGrid(animes) {
     const genres = anime.genres ? anime.genres.map(g => g.name).join(", ") : "";
     const card = document.createElement("div");
     card.className = "anime-card";
+    card.style.position = "relative";
     card.innerHTML = `
       <div class="anime-poster" style="background-image:url('${anime.images.jpg.image_url}')">
         <span class="anime-type-badge">${anime.type || "TV"}</span>
@@ -1093,6 +1333,8 @@ function renderGrid(animes) {
         <div class="anime-genres">${genres}</div>
       </div>
     `;
+    const likeBtn = createLikeBtn(anime);
+    card.querySelector(".anime-poster").appendChild(likeBtn);
     card.addEventListener("click", () => verDetallesAnime(anime.mal_id));
     grid.appendChild(card);
   });
@@ -1156,7 +1398,7 @@ function renderAiringGrid(animes) {
     card.className = "anime-card";
     card.innerHTML = `
       <div class="anime-poster" style="background-image:url('${anime.images.jpg.image_url}')">
-        <span class="anime-type-badge" style="background:rgba(0,212,170,0.85);color:#0a0a18;">AIRING</span>
+        <span class="anime-type-badge" style="background:rgba(243,195,86,0.85);color:#0a0a18;">AIRING</span>
       </div>
       <div class="anime-info">
         <div class="anime-title">${anime.title}</div>
@@ -1536,6 +1778,253 @@ function cargarEnPlayer(url) {
   }
 
   if (loader) loader.classList.add("hidden");
+
+  // Show one-time mobile seek hint on first native video load
+  if (esMP4 && !sessionStorage.getItem("rik_seek_hint_shown")) {
+    sessionStorage.setItem("rik_seek_hint_shown", "1");
+    const wrap = document.getElementById("playerVideoWrap");
+    if (wrap && window.innerWidth <= 768) {
+      const hint = document.createElement("div");
+      hint.className = "seek-hint";
+      hint.innerHTML = `<i class="fas fa-hand-point-left"></i> Doble toque para ±${SEEK_SECONDS}s`;
+      wrap.appendChild(hint);
+      setTimeout(() => hint.remove(), 3600);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// SEEK OVERLAY — Adelantar/Retroceder estilo YouTube
+// Doble toque en móvil | teclas ← → en PC
+// Solo funciona con video nativo (.mp4).
+// Para iframes muestra un aviso informativo.
+// ═══════════════════════════════════════════════════
+
+const SEEK_SECONDS = 10; // segundos a adelantar/retroceder
+
+let _seekFeedbackTimer = null;
+
+function _getNativeVideo() {
+  const v = document.getElementById("videoPlayerNative");
+  return (v && v.style.display !== "none" && v.src) ? v : null;
+}
+
+// Muestra el ripple de feedback encima del video
+// side: "left" | "right"   delta: número de segundos (positivo o negativo)
+function _showSeekFeedback(side, delta) {
+  const wrap = document.getElementById("playerVideoWrap");
+  if (!wrap) return;
+
+  // Reutilizar o crear el elemento
+  let fb = document.getElementById(`seekFb_${side}`);
+  if (!fb) {
+    fb = document.createElement("div");
+    fb.id = `seekFb_${side}`;
+    fb.className = `seek-feedback seek-feedback--${side}`;
+    wrap.appendChild(fb);
+  }
+
+  const sign  = delta > 0 ? "+" : "";
+  const label = `${sign}${delta}s`;
+  const icon  = delta > 0 ? "fa-forward" : "fa-backward";
+  fb.innerHTML = `<i class="fas ${icon}"></i><span>${label}</span>`;
+
+  // Reset animation
+  fb.classList.remove("seek-feedback--active");
+  void fb.offsetWidth; // reflow
+  fb.classList.add("seek-feedback--active");
+
+  clearTimeout(_seekFeedbackTimer);
+  _seekFeedbackTimer = setTimeout(() => {
+    fb.classList.remove("seek-feedback--active");
+  }, 700);
+}
+
+// Realiza el seek efectivo (solo en video nativo)
+// Devuelve true si tuvo éxito, false si era iframe
+function seekVideo(delta) {
+  const v = _getNativeVideo();
+  if (!v) {
+    // Iframe: informar al usuario
+    showToast(`${delta > 0 ? "⏩" : "⏪"} Control de tiempo no disponible en este servidor`);
+    return false;
+  }
+  try {
+    v.currentTime = Math.max(0, Math.min(v.duration || 9999, v.currentTime + delta));
+  } catch(e) { /* sin permisos */ }
+  return true;
+}
+
+// ── Teclado (PC) ───────────────────────────────────
+// ← → para seek | Space para play/pause | F para fullscreen
+document.addEventListener("keydown", function(e) {
+  // Solo actuar si el playerView está visible y el foco no está en un input
+  const pv = document.getElementById("playerView");
+  if (!pv || pv.style.display === "none") return;
+  const tag = document.activeElement?.tagName?.toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select") return;
+
+  switch(e.key) {
+    case "ArrowRight":
+      e.preventDefault();
+      if (seekVideo(SEEK_SECONDS)) _showSeekFeedback("right", +SEEK_SECONDS);
+      break;
+    case "ArrowLeft":
+      e.preventDefault();
+      if (seekVideo(-SEEK_SECONDS)) _showSeekFeedback("left", -SEEK_SECONDS);
+      break;
+    case " ":
+    case "k": {
+      e.preventDefault();
+      const v = _getNativeVideo();
+      if (v) { v.paused ? v.play() : v.pause(); }
+      break;
+    }
+    case "f":
+    case "F": {
+      const v = _getNativeVideo();
+      if (v) {
+        if (document.fullscreenElement) document.exitFullscreen?.();
+        else v.requestFullscreen?.();
+      }
+      break;
+    }
+    case "ArrowUp":
+    case "ArrowDown": {
+      const v = _getNativeVideo();
+      if (v) {
+        e.preventDefault();
+        v.volume = Math.max(0, Math.min(1, v.volume + (e.key === "ArrowUp" ? 0.1 : -0.1)));
+        showToast(`🔊 Volumen: ${Math.round(v.volume * 100)}%`);
+      }
+      break;
+    }
+  }
+});
+
+// ── Toque doble (Móvil) ────────────────────────────
+// Toque en la mitad izquierda = -10s | mitad derecha = +10s
+// Un solo toque en el centro = play/pause (solo nativo)
+(function _initTouchSeek() {
+  let _tapTimer    = null;
+  let _tapCount    = 0;
+  let _tapSide     = null;
+  let _tapAccum    = 0;       // segundos acumulados en toques rápidos
+
+  function _attachTouchSeek() {
+    const wrap = document.getElementById("playerVideoWrap");
+    if (!wrap || wrap._touchSeekAttached) return;
+    wrap._touchSeekAttached = true;
+
+    wrap.addEventListener("touchend", function(e) {
+      const pv = document.getElementById("playerView");
+      if (!pv || pv.style.display === "none") return;
+
+      // Ignorar si el toque fue sobre un botón/overlay interno
+      if (e.target.closest("button, .autoplay-card, .seek-feedback")) return;
+
+      const rect  = wrap.getBoundingClientRect();
+      const touchX = e.changedTouches[0].clientX;
+      const relX   = (touchX - rect.left) / rect.width;
+
+      // Zona central (40-60%): play/pause con un solo toque
+      const side = relX < 0.4 ? "left" : (relX > 0.6 ? "right" : "center");
+
+      if (side === "center") {
+        // Un solo toque en centro: play/pause en nativo, ignorar en iframe
+        clearTimeout(_tapTimer);
+        _tapTimer = setTimeout(() => {
+          const v = _getNativeVideo();
+          if (v) { v.paused ? v.play() : v.pause(); }
+        }, 220);
+        return;
+      }
+
+      // Doble (o múltiple) toque en los laterales
+      if (_tapSide !== side) {
+        // Cambió de lado: reiniciar acumulador
+        _tapCount  = 0;
+        _tapAccum  = 0;
+        _tapSide   = side;
+      }
+
+      clearTimeout(_tapTimer);
+      _tapCount++;
+      const delta  = side === "right" ? SEEK_SECONDS : -SEEK_SECONDS;
+      _tapAccum   += delta;
+
+      _tapTimer = setTimeout(() => {
+        if (_tapCount >= 2) {
+          // Doble toque confirmado
+          if (seekVideo(_tapAccum)) _showSeekFeedback(side, _tapAccum);
+        }
+        // Primer toque solo: mostrar controles nativos (no hacemos nada extra)
+        _tapCount = 0;
+        _tapAccum = 0;
+        _tapSide  = null;
+      }, 280);
+
+    }, { passive: true });
+  }
+
+  // Adjuntar cuando el DOM esté listo, y re-adjuntar si la vista cambia
+  document.addEventListener("DOMContentLoaded", _attachTouchSeek);
+  // También intentar adjuntar cuando se muestra el playerView
+  const _origMostrarVista = window.mostrarVista;
+  if (typeof _origMostrarVista === "function") {
+    window.mostrarVista = function(vista) {
+      _origMostrarVista(vista);
+      if (vista === "playerView") setTimeout(_attachTouchSeek, 100);
+    };
+  }
+})();
+
+
+// ─── [NUEVO] PERSONAJES (JIKAN) ─────────────────────
+async function fetchCharacters(malId) {
+  try {
+    const res  = await fetch(`${JIKAN}/anime/${malId}/characters`);
+    const data = await res.json();
+    return (data.data || []).filter(c => c.role === "Main").slice(0, 10);
+  } catch(e) {
+    console.warn("[Characters]", e.message);
+    return [];
+  }
+}
+
+function renderCharacterCarousel(characters) {
+  const container = document.getElementById("characterCarouselSection");
+  if (!container) return;
+  if (!characters.length) { container.style.display = "none"; return; }
+
+  container.style.display = "block";
+  const track = document.getElementById("characterTrack");
+  if (!track) return;
+  track.innerHTML = "";
+
+  characters.forEach(c => {
+    const name    = c.character?.name || "Desconocido";
+    const img     = c.character?.images?.jpg?.image_url || "";
+    const va      = (c.voice_actors || []).find(v => v.language === "Japanese");
+    const vaName  = va?.person?.name || "";
+    const vaImg   = va?.person?.images?.jpg?.image_url || "";
+
+    const card = document.createElement("div");
+    card.className = "char-card";
+    card.innerHTML = `
+      <div class="char-img-wrap">
+        ${img ? `<img class="char-img" src="${img}" alt="${name}" loading="lazy" />` : `<div class="char-img char-img-placeholder"><i class="fas fa-user"></i></div>`}
+      </div>
+      <div class="char-name">${name}</div>
+      ${vaName ? `
+        <div class="char-va-row">
+          ${vaImg ? `<img class="char-va-img" src="${vaImg}" alt="${vaName}" loading="lazy" />` : ""}
+          <span class="char-va-name">${vaName}</span>
+        </div>
+      ` : ""}
+    `;
+    track.appendChild(card);
+  });
 }
 
 // ─── [NUEVO] RELACIONES PRECUELA / SECUELA (AniList) ───────────
@@ -1627,7 +2116,7 @@ function renderRelacionesTemporadas(edges) {
       .rel-card:hover {
         border-color: var(--accent);
         transform: translateY(-2px);
-        box-shadow: 0 6px 18px rgba(0,212,170,0.18);
+        box-shadow: 0 6px 18px rgba(243,195,86,0.18);
       }
       .rel-card-cover {
         width: 44px;
@@ -1654,9 +2143,9 @@ function renderRelacionesTemporadas(edges) {
         border: 1px solid rgba(124,106,247,0.4);
       }
       .rel-card-badge.sequel {
-        background: rgba(0,212,170,0.15);
+        background: rgba(243,195,86,0.15);
         color: var(--accent);
-        border: 1px solid rgba(0,212,170,0.35);
+        border: 1px solid rgba(243,195,86,0.35);
       }
       .rel-card-title {
         font-size: 0.8rem;
@@ -1767,7 +2256,7 @@ function renderNextEpisodeBadge(episode, airingAtUnix) {
     const diff = airingAtUnix * 1000 - Date.now();
     if (diff <= 0) {
       el.innerHTML = `<i class="fas fa-broadcast-tower"></i> Ep. ${episode} — ¡Disponible ahora!`;
-      el.style.background = "rgba(0,212,170,0.9)";
+      el.style.background = "rgba(243,195,86,0.9)";
       el.style.color = "#0a0a18";
       clearInterval(_nextEpIntervalId);
       return;
@@ -1974,20 +2463,28 @@ async function _renderSegmentoEpisodios(segmento) {
       return payload;
     };
 
+    const histEntry = animeActualMAL?.mal_id
+      ? (currentUser?.history || getLocalHistory()).find(h => h.key === `${animeActualMAL.mal_id}_${numeroEpisodio}`)
+      : null;
+    const isWatched = histEntry && histEntry.time > 30;
+    const watchedOverlay = isWatched ? `<div class="ep-watched-badge"><i class="fas fa-check-circle"></i></div>` : "";
+
     const mediaEl = thumbUrl
-      ? `<img class="ep-card-thumb" src="${thumbUrl}" alt="Ep ${numeroEpisodio}" loading="lazy"
+      ? `<img class="ep-card-thumb${isWatched ? " ep-watched-thumb" : ""}" src="${thumbUrl}" alt="Ep ${numeroEpisodio}" loading="lazy"
               onerror="this.style.display='none';this.nextElementSibling.style.display='block';" />
          <div class="ep-card-gradient" style="display:none;background:${grad};"></div>`
-      : `<div class="ep-card-gradient" style="background:${grad};"></div>`;
+      : `<div class="ep-card-gradient${isWatched ? " ep-watched-thumb" : ""}" style="background:${grad};"></div>`;
 
     const detCard = document.createElement("div");
-    detCard.className = "ep-card-premium";
+    detCard.className = `ep-card-premium${isWatched ? " ep-card-watched" : ""}`;
     detCard.innerHTML = `
       ${mediaEl}
       <div class="ep-card-overlay"><i class="fas fa-play ep-card-play"></i></div>
       <span class="ep-card-badge">Ep. ${numeroEpisodio}</span>
+      ${watchedOverlay}
       <div class="ep-card-info">
         <div class="ep-card-title" title="${epTitle}">${epTitle}</div>
+        ${isWatched ? `<div class="ep-card-progress-bar"><div class="ep-card-progress-fill" style="width:100%"></div></div>` : ""}
       </div>
     `;
     detCard.addEventListener("click", () => procesarStreamingEpisodio(getEpPayload()));
@@ -2052,7 +2549,7 @@ async function construirListaEpisodios(episodesArray) {
         transition:transform 0.2s,box-shadow 0.2s;
         border:1px solid var(--border);
       }
-      .ep-card-premium:hover { transform:translateY(-4px); box-shadow:0 8px 24px rgba(0,212,170,0.2); }
+      .ep-card-premium:hover { transform:translateY(-4px); box-shadow:0 8px 24px rgba(243,195,86,0.2); }
       .ep-card-thumb { width:100%; aspect-ratio:16/9; object-fit:cover; background:var(--bg-card); display:block; }
       .ep-card-overlay {
         position:absolute; inset:0 0 auto 0; height:calc(100% - 52px);
@@ -2106,20 +2603,29 @@ async function construirListaEpisodios(episodesArray) {
 
     // ── Tarjeta del grid de detalles: solo para animes ≤50 eps (los de >50 los maneja el selector) ──
     if (epGrid && episodesArray.length <= 50) {
+      const histEntry = animeActualMAL?.mal_id
+        ? (currentUser?.history || getLocalHistory()).find(h => h.key === `${animeActualMAL.mal_id}_${numeroEpisodio}`)
+        : null;
+      const isWatched = histEntry && histEntry.time > 30;
+      const watchedOverlay = isWatched
+        ? `<div class="ep-watched-badge"><i class="fas fa-check-circle"></i></div>`
+        : "";
       const mediaEl = thumbUrl
-        ? `<img class="ep-card-thumb" src="${thumbUrl}" alt="Ep ${numeroEpisodio}" loading="lazy"
+        ? `<img class="ep-card-thumb${isWatched ? " ep-watched-thumb" : ""}" src="${thumbUrl}" alt="Ep ${numeroEpisodio}" loading="lazy"
                 onerror="this.style.display='none';this.nextElementSibling.style.display='block';" />
            <div class="ep-card-gradient" style="display:none;background:${grad};"></div>`
-        : `<div class="ep-card-gradient" style="background:${grad};"></div>`;
+        : `<div class="ep-card-gradient${isWatched ? " ep-watched-thumb" : ""}" style="background:${grad};"></div>`;
 
       const detCard = document.createElement("div");
-      detCard.className = "ep-card-premium";
+      detCard.className = `ep-card-premium${isWatched ? " ep-card-watched" : ""}`;
       detCard.innerHTML = `
         ${mediaEl}
         <div class="ep-card-overlay"><i class="fas fa-play ep-card-play"></i></div>
         <span class="ep-card-badge">Ep. ${numeroEpisodio}</span>
+        ${watchedOverlay}
         <div class="ep-card-info">
           <div class="ep-card-title" title="${epTitle}">${epTitle}</div>
+          ${isWatched ? `<div class="ep-card-progress-bar"><div class="ep-card-progress-fill" style="width:100%"></div></div>` : ""}
         </div>
       `;
       detCard.addEventListener("click", () => procesarStreamingEpisodio(getEpPayload()));
@@ -2239,7 +2745,7 @@ async function verDetallesAnime(animeId) {
   if (statusBadgeEl) {
     const isAiring = anime.status === "Currently Airing";
     statusBadgeEl.innerHTML = isAiring
-      ? `<span class="anime-type-badge" style="background:rgba(0,212,170,0.9);color:#0a0a18;">
+      ? `<span class="anime-type-badge" style="background:rgba(243,195,86,0.9);color:#0a0a18;">
            <i class="fas fa-broadcast-tower"></i> EN EMISIÓN
          </span>`
       : `<span class="anime-type-badge" style="background:rgba(100,100,130,0.7);">
@@ -2281,6 +2787,7 @@ async function verDetallesAnime(animeId) {
 
   updateFavBtn();
   updateFollowBtn();
+  updateDetLikeBtn();
 
   // [NUEVO] Cargar próximo episodio desde AniList en paralelo (no bloquea la UI)
   fetchNextEpisodeAniList(animeId).then(aniData => {
@@ -2293,6 +2800,11 @@ async function verDetallesAnime(animeId) {
   // [NUEVO] Cargar relaciones precuela/secuela desde AniList en paralelo
   fetchRelacionesAniList(animeId).then(edges => {
     renderRelacionesTemporadas(edges);
+  });
+
+  // [NUEVO] Cargar personajes desde Jikan en paralelo
+  fetchCharacters(animeId).then(chars => {
+    renderCharacterCarousel(chars);
   });
 // ── Caché sessionStorage por anime ──
   const animeCache = (() => {
@@ -2493,7 +3005,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       .cw-card:hover {
         transform: translateY(-3px);
-        box-shadow: 0 8px 24px rgba(0,212,170,0.18);
+        box-shadow: 0 8px 24px rgba(243,195,86,0.18);
         border-color: var(--accent);
       }
       .cw-thumb {
@@ -2743,7 +3255,7 @@ document.addEventListener("DOMContentLoaded", () => {
         background: var(--bg-card);
         border: 1px solid var(--border);
         border-radius: 12px;
-        box-shadow: 0 16px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,212,170,0.12);
+        box-shadow: 0 16px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(243,195,86,0.12);
         overflow: hidden;
         animation: pdSlideIn 0.18s cubic-bezier(0.34,1.36,0.64,1) both;
       }
@@ -2795,7 +3307,7 @@ document.addEventListener("DOMContentLoaded", () => {
         color: var(--text-primary);
       }
       .pd-item:hover { background: var(--bg-elevated); }
-      .pd-item--active { background: rgba(0,212,170,0.07); }
+      .pd-item--active { background: rgba(243,195,86,0.07); }
       .pd-check { font-size: 1rem; flex-shrink: 0; width: 18px; text-align: center; }
       .pd-name { flex: 1; }
       .pd-count { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
@@ -2911,6 +3423,15 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     loadPlaylistsView();
   });
+
+  // Directorio
+  document.getElementById("sideDirectory")?.addEventListener("click", e => {
+    e.preventDefault();
+    loadDirectoryView();
+  });
+
+  // Render inicial de likes locales
+  renderLocalLikesSection();
 
   // Botones internos de la vista playlists
   document.getElementById("plvNewBtn").addEventListener("click", () => {
@@ -3377,3 +3898,375 @@ procesarStreamingEpisodio = async function(episodeObj) {
   await _origPSE(episodeObj);
   actualizarBotonesEpNav();
 };
+// ═══════════════════════════════════════════════════
+// PAGINACIÓN DEL CATÁLOGO
+// ═══════════════════════════════════════════════════
+
+let _catalogPage    = 1;
+let _catalogTotal   = 1;
+const CATALOG_LIMIT = 24;
+
+async function loadCatalogPage(page) {
+  const grid   = document.getElementById("animeGrid");
+  const pgInfo = document.getElementById("paginationInfo");
+  const btnPrev = document.getElementById("btnCatalogPrev");
+  const btnNext = document.getElementById("btnCatalogNext");
+
+  if (grid) grid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;text-align:center;padding:2rem;">
+    <i class="fas fa-spinner fa-spin"></i> Cargando página ${page}...
+  </p>`;
+
+  try {
+    const res  = await fetch(`${JIKAN}/top/anime?limit=${CATALOG_LIMIT}&page=${page}`);
+    const data = await res.json();
+
+    const items = (data.data || []).filter(a => !esContenidoAdulto(a));
+    _catalogPage  = data.pagination?.current_page || page;
+    _catalogTotal = data.pagination?.last_visible_page || 1;
+
+    // Merge en local sin duplicados
+    items.forEach(a => {
+      if (!localAnimeData.find(x => x.mal_id === a.mal_id)) localAnimeData.push(a);
+    });
+    filteredAnimeData = items;
+    renderGrid(items);
+
+    if (pgInfo) pgInfo.textContent = `Página ${_catalogPage} de ${_catalogTotal}`;
+    if (btnPrev) btnPrev.disabled = _catalogPage <= 1;
+    if (btnNext) btnNext.disabled = _catalogPage >= _catalogTotal;
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch(err) {
+    console.error("[Paginación]", err.message);
+  }
+}
+
+function catalogPrev() {
+  if (_catalogPage > 1) loadCatalogPage(_catalogPage - 1);
+}
+
+function catalogNext() {
+  if (_catalogPage < _catalogTotal) loadCatalogPage(_catalogPage + 1);
+}
+
+// ═══════════════════════════════════════════════════
+// DIRECTORIO CON FILTRADO AVANZADO
+// ═══════════════════════════════════════════════════
+
+let _dirResults       = [];
+let _dirFilterOpen    = false;
+
+const DIR_GENRES = [
+  "Action","Adventure","Comedy","Drama","Fantasy","Romance",
+  "Horror","Mystery","Sci-Fi","Slice of Life","Sports","Supernatural",
+  "Psychological","Thriller","Magic","Isekai","Mecha","Music",
+];
+const DIR_DEMOGRAPHICS = ["Shounen","Shoujo","Seinen","Josei","Kids"];
+const DIR_TYPES        = ["TV","Movie","OVA","ONA","Special","Music"];
+const DIR_STATUS       = ["airing","complete","upcoming"];
+const DIR_STATUS_LABEL = { airing: "En Emisión", complete: "Finalizado", upcoming: "Próximamente" };
+const DIR_SEASONS      = ["winter","spring","summer","fall"];
+const DIR_SEASONS_LABEL = { winter:"Invierno", spring:"Primavera", summer:"Verano", fall:"Otoño" };
+const DIR_LETTERS      = ["#","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"];
+const DIR_YEARS_START  = 1980;
+
+async function loadDirectoryView() {
+  mostrarVista("directoryView");
+  document.getElementById("sideDirectory")?.classList.add("active");
+
+  const grid = document.getElementById("dirGrid");
+  if (grid && grid.children.length === 0) {
+    grid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;text-align:center;padding:3rem;">
+      <i class="fas fa-filter"></i> Usa los filtros y presiona <strong>Filtrar</strong> para buscar.
+    </p>`;
+  }
+  _buildDirYearOptions();
+}
+
+function _buildDirYearOptions() {
+  const sel = document.getElementById("dirYear");
+  if (!sel || sel.options.length > 1) return;
+  const currentYear = new Date().getFullYear();
+  for (let y = currentYear; y >= DIR_YEARS_START; y--) {
+    const opt = document.createElement("option");
+    opt.value = y; opt.textContent = y;
+    sel.appendChild(opt);
+  }
+}
+
+async function applyDirectoryFilters() {
+  const grid    = document.getElementById("dirGrid");
+  const orderBy = document.getElementById("dirOrderBy")?.value || "score";
+  const genre   = document.getElementById("dirGenre")?.value   || "";
+  const letter  = document.getElementById("dirLetter")?.value  || "";
+  const demo    = document.getElementById("dirDemographic")?.value || "";
+  const type    = document.getElementById("dirType")?.value    || "";
+  const status  = document.getElementById("dirStatus")?.value  || "";
+  const year    = document.getElementById("dirYear")?.value    || "";
+  const season  = document.getElementById("dirSeason")?.value  || "";
+
+  if (!grid) return;
+  grid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;text-align:center;padding:3rem;">
+    <i class="fas fa-spinner fa-spin"></i> Buscando...
+  </p>`;
+
+  // Construir parámetros para Jikan
+  const params = new URLSearchParams();
+  params.set("limit", "24");
+  params.set("sfw", "true");
+  if (orderBy)  params.set("order_by", orderBy);
+  if (genre)    params.set("genres",   genre);
+  if (letter && letter !== "#") params.set("letter", letter);
+  if (type)     params.set("type",     type);
+  if (status)   params.set("status",   status);
+  if (year)     params.set("start_date", `${year}-01-01`);
+
+  // Si hay temporada + año, usar /seasons endpoint
+  let url = `${JIKAN}/anime?${params.toString()}`;
+  if (season && year) {
+    url = `${JIKAN}/seasons/${year}/${season}?limit=24&sfw=true`;
+  } else if (season) {
+    url = `${JIKAN}/seasons/now?limit=24&sfw=true`;
+  }
+
+  try {
+    const res  = await fetch(url);
+    const data = await res.json();
+    let results = (data.data || []).filter(a => !esContenidoAdulto(a));
+
+    // Filtrar demografía (no disponible como param en Jikan v4 genérico)
+    if (demo) {
+      results = results.filter(a =>
+        (a.demographics || []).some(d => d.name.toLowerCase() === demo.toLowerCase()) ||
+        (a.themes       || []).some(d => d.name.toLowerCase() === demo.toLowerCase())
+      );
+    }
+
+    // Merge en catálogo local
+    results.forEach(a => {
+      if (!localAnimeData.find(x => x.mal_id === a.mal_id)) localAnimeData.push(a);
+    });
+
+    _dirResults = results;
+    _renderDirGrid(results);
+  } catch(err) {
+    console.error("[Directorio]", err.message);
+    grid.innerHTML = `<p style="color:var(--text-muted);grid-column:1/-1;text-align:center;padding:3rem;">
+      <i class="fas fa-exclamation-triangle"></i> Error al buscar. Intenta de nuevo.
+    </p>`;
+  }
+}
+
+function _renderDirGrid(results) {
+  const grid = document.getElementById("dirGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  if (!results.length) {
+    grid.innerHTML = `<p style="color:var(--text-muted);grid-column:1/-1;text-align:center;padding:3rem;">
+      <i class="fas fa-search"></i> Sin resultados. Prueba otros filtros.
+    </p>`;
+    return;
+  }
+  results.forEach(anime => {
+    const card = document.createElement("div");
+    card.className = "anime-card";
+    card.style.position = "relative";
+    card.innerHTML = `
+      <div class="anime-poster" style="background-image:url('${anime.images?.jpg?.image_url || ""}')">
+        <span class="anime-type-badge">${anime.type || "TV"}</span>
+      </div>
+      <div class="anime-info">
+        <div class="anime-title">${anime.title}</div>
+        <div class="anime-rating"><i class="fas fa-star"></i> ${anime.score || "N/A"}</div>
+        <div class="anime-genres">${(anime.genres || []).map(g => g.name).slice(0,2).join(", ")}</div>
+      </div>
+    `;
+    const likeBtn = createLikeBtn(anime);
+    card.querySelector(".anime-poster").appendChild(likeBtn);
+    card.addEventListener("click", () => verDetallesAnime(anime.mal_id));
+    grid.appendChild(card);
+  });
+}
+
+function dirRandomAnime() {
+  const pool = _dirResults.length ? _dirResults : localAnimeData;
+  if (!pool.length) { showToast("Cargando catálogo... intenta de nuevo", "error"); return; }
+  const randomAnime = pool[Math.floor(Math.random() * pool.length)];
+  showToast(`🎲 Abriendo: ${randomAnime.title}`);
+  setTimeout(() => verDetallesAnime(randomAnime.mal_id), 400);
+}
+
+function toggleDirFilters() {
+  _dirFilterOpen = !_dirFilterOpen;
+  const panel = document.getElementById("dirFilterPanel");
+  if (panel) {
+    panel.classList.toggle("dir-filters-open", _dirFilterOpen);
+  }
+  const btn = document.getElementById("dirToggleFiltersBtn");
+  if (btn) {
+    btn.innerHTML = _dirFilterOpen
+      ? `<i class="fas fa-times"></i> Ocultar Filtros`
+      : `<i class="fas fa-sliders-h"></i> Mostrar Filtros`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// AUTOPLAY (Controles de Maratón)
+// ═══════════════════════════════════════════════════
+
+let _autoplayTimer  = null;
+let _autoplayCount  = 10;
+let _autoplayActive = false;
+let _autoplayPaused = false;  // NEW: tracks if the user paused the countdown
+
+// Autoplay: appears when ~10s remain (native) or via timer (iframe)
+function _initAutoplay() {
+  const native = document.getElementById("videoPlayerNative");
+
+  // For native video
+  if (native && native.style.display !== "none") {
+    native.addEventListener("timeupdate", function _ap() {
+      const remaining = native.duration - native.currentTime;
+      if (!isNaN(remaining) && remaining <= 10 && remaining > 0 && !_autoplayActive) {
+        _autoplayActive = true;
+        _showAutoplayCard();
+        native.removeEventListener("timeupdate", _ap);
+      }
+    });
+    return;
+  }
+
+  // For iframe: show autoplay after estimated time (20 min), only if next episode exists
+  const lista = animeActualBackend?.episodes || animeActualBackend?.list || animeActualBackend?.episodeList || [];
+  const idx   = lista.findIndex(e => String(e.number) === String(numeroEpisodioActual));
+  if (idx === -1 || idx >= lista.length - 1) return; // no next episode
+
+  const IFRAME_AUTOPLAY_MS = 20 * 60 * 1000; // 20 min
+  _autoplayTimer = setTimeout(() => {
+    if (!_autoplayActive) {
+      _autoplayActive = true;
+      _showAutoplayCard();
+    }
+  }, IFRAME_AUTOPLAY_MS);
+}
+
+function _showAutoplayCard() {
+  const lista  = animeActualBackend?.episodes ||
+                 animeActualBackend?.list ||
+                 animeActualBackend?.episodeList || [];
+  const idx    = lista.findIndex(e => String(e.number) === String(numeroEpisodioActual));
+  const nextEp = lista[idx + 1];
+  if (!nextEp) return;
+
+  const existing = document.getElementById("autoplayCard");
+  if (existing) existing.remove();
+
+  const anime = animeActualMAL;
+  const img   = anime?.images?.jpg?.image_url || "";
+  const title = anime?.title || "Siguiente episodio";
+
+  const card = document.createElement("div");
+  card.id        = "autoplayCard";
+  card.className = "autoplay-card";
+  card.innerHTML = `
+    <div class="apc-loading-overlay" id="apcLoadingOverlay" style="display:none;">
+      <div class="apc-spinner"></div>
+      <span>Cargando episodio...</span>
+    </div>
+    <div class="apc-poster" style="background-image:url('${img}')"></div>
+    <div class="apc-info">
+      <div class="apc-label">A continuación</div>
+      <div class="apc-title">${title}</div>
+      <div class="apc-ep">Episodio ${nextEp.number || idx + 2}</div>
+      <div class="apc-bar"><div class="apc-bar-fill" id="apcBarFill"></div></div>
+      <div class="apc-actions">
+        <button class="apc-play" id="apcPlayBtn">
+          <i class="fas fa-play"></i> Reproducir (<span id="apcCount">10</span>s)
+        </button>
+        <button class="apc-pause" id="apcPauseBtn" title="Pausar cuenta regresiva">
+          <i class="fas fa-pause"></i>
+        </button>
+        <button class="apc-cancel" onclick="cancelarAutoplay()">Cancelar</button>
+      </div>
+    </div>
+  `;
+
+  const wrap = document.getElementById("playerVideoWrap");
+  if (wrap) wrap.appendChild(card);
+
+  document.getElementById("apcPlayBtn").onclick = () => {
+    _triggerAutoplayNext(nextEp, idx);
+  };
+
+  // NEW: pause/resume button for the countdown
+  const pauseBtn = document.getElementById("apcPauseBtn");
+  pauseBtn.onclick = () => {
+    _autoplayPaused = !_autoplayPaused;
+    pauseBtn.innerHTML = _autoplayPaused
+      ? `<i class="fas fa-play"></i>`
+      : `<i class="fas fa-pause"></i>`;
+    pauseBtn.title = _autoplayPaused ? "Reanudar cuenta regresiva" : "Pausar cuenta regresiva";
+  };
+
+  _autoplayCount  = 10;
+  _autoplayPaused = false;
+  const fill    = document.getElementById("apcBarFill");
+  const counter = document.getElementById("apcCount");
+
+  _autoplayTimer = setInterval(() => {
+    if (_autoplayPaused) return; // respect pause
+    _autoplayCount--;
+    if (counter) counter.textContent = _autoplayCount;
+    if (fill)    fill.style.width    = `${(10 - _autoplayCount) * 10}%`;
+    if (_autoplayCount <= 0) {
+      _triggerAutoplayNext(nextEp, idx);
+    }
+  }, 1000);
+}
+
+// NEW: shows loading state then navigates
+function _triggerAutoplayNext(nextEp, idx) {
+  clearInterval(_autoplayTimer);
+  _autoplayActive = false;
+
+  // Show loading overlay on the card
+  const overlay = document.getElementById("apcLoadingOverlay");
+  const actionsEl = document.querySelector(".apc-actions");
+  if (overlay) overlay.style.display = "flex";
+  if (actionsEl) actionsEl.style.display = "none";
+
+  // Brief delay to let loading show, then navigate
+  setTimeout(() => {
+    const card = document.getElementById("autoplayCard");
+    if (card) card.remove();
+    navegarEpisodio(1);
+  }, 600);
+}
+
+function cancelarAutoplay() {
+  clearInterval(_autoplayTimer);
+  clearTimeout(_autoplayTimer);
+  _autoplayActive = false;
+  _autoplayPaused = false;
+  const card = document.getElementById("autoplayCard");
+  if (card) card.remove();
+}
+
+// Hook _initAutoplay after loading into player
+const _origCargarEnPlayer = cargarEnPlayer;
+cargarEnPlayer = function(url) {
+  _origCargarEnPlayer(url);
+  cancelarAutoplay();
+  // Wait for video to be visible and have src
+  setTimeout(() => {
+    _initAutoplay();
+  }, 800);
+};
+
+// ── Sincronizar al cargar la app ──────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  loadUser();
+  if (localStorage.getItem("rik_jwt") && currentUser) {
+    syncUserFromServer();
+  }
+});
