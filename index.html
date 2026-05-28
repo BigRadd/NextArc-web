@@ -72,6 +72,9 @@
           <a href="#" class="sidebar-item" id="sideCalendar"
             ><i class="fas fa-calendar-alt"></i> Calendario</a
           >
+          <a href="#" class="sidebar-item" id="sideDirectory"
+            ><i class="fas fa-th-list"></i> Directorio</a
+          >
         </div>
         <!-- DESPUÉS -->
         <div class="sidebar-section">
@@ -168,6 +171,26 @@
             class="continue-watching-carousel"
             id="continueWatchingGrid"
           ></div>
+        </section>
+
+        <!-- ── LIKES LOCALES (sin cuenta) ───────────────────────── -->
+        <section
+          id="localLikesSection"
+          style="display: none; margin-bottom: 0.5rem"
+        >
+          <div class="section-header">
+            <h2 class="section-title">
+              <i
+                class="fas fa-heart"
+                style="color: #ff4d79; margin-right: 0.5rem"
+              ></i>
+              Animes que te gustan
+            </h2>
+            <span style="color: var(--text-muted); font-size: 0.82rem">
+              <i class="fas fa-lock-open"></i> Guardado localmente
+            </span>
+          </div>
+          <div class="anime-grid" id="localLikesGrid"></div>
         </section>
 
         <!-- Catálogo Principal -->
@@ -269,6 +292,26 @@
             </div>
           </div>
         </section>
+
+        <!-- ── PAGINACIÓN DEL CATÁLOGO ── -->
+        <div class="catalog-pagination" id="catalogPagination">
+          <button
+            class="pag-btn"
+            id="btnCatalogPrev"
+            onclick="catalogPrev()"
+            disabled
+          >
+            <i class="fas fa-chevron-left"></i> Anterior
+          </button>
+          <span class="pag-info" id="paginationInfo">Página 1</span>
+          <button
+            class="pag-btn pag-btn-next"
+            id="btnCatalogNext"
+            onclick="catalogNext()"
+          >
+            Siguiente <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
       </main>
 
       <!-- VISTA: EN EMISIÓN -->
@@ -442,6 +485,28 @@
               <!-- Sección de temporadas relacionadas (precuela / secuela) — se rellena por JS -->
               <div id="relacionesContainer" style="display: none"></div>
 
+              <!-- ── PERSONAJES ─────────────────────────────────── -->
+              <div
+                id="characterCarouselSection"
+                style="
+                  display: none;
+                  margin-top: 1.5rem;
+                  padding-top: 1.25rem;
+                  border-top: 1px solid var(--border);
+                "
+              >
+                <div class="char-carousel-header">
+                  <i
+                    class="fas fa-users"
+                    style="color: var(--accent); margin-right: 0.5rem"
+                  ></i>
+                  <span>Personajes Principales</span>
+                </div>
+                <div class="char-track-wrap">
+                  <div class="char-track" id="characterTrack"></div>
+                </div>
+              </div>
+
               <div
                 style="
                   display: flex;
@@ -464,6 +529,13 @@
                   style="border-color: var(--accent); color: var(--accent)"
                 >
                   <i class="fas fa-bell"></i> Seguir
+                </button>
+                <button
+                  class="btn btn-det-like"
+                  id="detLikeBtn"
+                  onclick="toggleDetLike()"
+                >
+                  <i class="far fa-heart"></i> Me gusta
                 </button>
               </div>
             </div>
@@ -579,6 +651,13 @@
                   background: #000;
                 "
               ></video>
+              <!-- Keyboard shortcuts hint (PC, visible on hover) -->
+              <div class="seek-kb-hint" id="seekKbHint">
+                <div><kbd>←</kbd> / <kbd>→</kbd> &nbsp;±10 seg</div>
+                <div><kbd>Space</kbd> &nbsp;Play / Pause</div>
+                <div><kbd>↑</kbd> / <kbd>↓</kbd> &nbsp;Volumen</div>
+                <div><kbd>F</kbd> &nbsp;Pantalla completa</div>
+              </div>
             </div>
 
             <div class="player-ep-nav" id="playerEpNav">
@@ -712,6 +791,205 @@
 
       <span id="modalTitle" style="display: none"></span>
 
+      <!-- VISTA: DIRECTORIO -->
+      <main class="content" id="directoryView" style="display: none">
+        <div class="dir-header-row">
+          <h2 class="section-title" style="margin-bottom: 0">
+            <i
+              class="fas fa-th-list"
+              style="color: var(--accent); margin-right: 0.5rem"
+            ></i>
+            Directorio Completo
+          </h2>
+          <button
+            class="btn btn-secondary dir-toggle-filters-btn"
+            id="dirToggleFiltersBtn"
+            onclick="toggleDirFilters()"
+          >
+            <i class="fas fa-sliders-h"></i> Mostrar Filtros
+          </button>
+        </div>
+
+        <!-- Panel de filtros -->
+        <div class="dir-filter-panel" id="dirFilterPanel">
+          <div class="dir-filters-grid">
+            <!-- Ordenar por -->
+            <div class="dir-filter-group">
+              <label class="dir-filter-label"
+                ><i class="fas fa-sort"></i> Ordenar por</label
+              >
+              <select class="dir-select" id="dirOrderBy">
+                <option value="score">Puntuación</option>
+                <option value="popularity">Popularidad</option>
+                <option value="start_date">Fecha</option>
+                <option value="members">Miembros</option>
+                <option value="favorites">Favoritos</option>
+              </select>
+            </div>
+            <!-- Género -->
+            <div class="dir-filter-group">
+              <label class="dir-filter-label"
+                ><i class="fas fa-tag"></i> Género</label
+              >
+              <select class="dir-select" id="dirGenre">
+                <option value="">Todos</option>
+                <option value="1">Acción</option>
+                <option value="2">Aventura</option>
+                <option value="4">Comedia</option>
+                <option value="8">Drama</option>
+                <option value="10">Fantasía</option>
+                <option value="14">Terror</option>
+                <option value="7">Misterio</option>
+                <option value="22">Romance</option>
+                <option value="24">Ciencia Ficción</option>
+                <option value="36">Slice of Life</option>
+                <option value="30">Deportes</option>
+                <option value="37">Sobrenatural</option>
+                <option value="40">Psicológico</option>
+                <option value="62">Isekai</option>
+                <option value="18">Mecha</option>
+              </select>
+            </div>
+            <!-- Letra -->
+            <div class="dir-filter-group">
+              <label class="dir-filter-label"
+                ><i class="fas fa-font"></i> Letra</label
+              >
+              <select class="dir-select" id="dirLetter">
+                <option value="">Todas</option>
+                <option>#</option>
+                <option>A</option>
+                <option>B</option>
+                <option>C</option>
+                <option>D</option>
+                <option>E</option>
+                <option>F</option>
+                <option>G</option>
+                <option>H</option>
+                <option>I</option>
+                <option>J</option>
+                <option>K</option>
+                <option>L</option>
+                <option>M</option>
+                <option>N</option>
+                <option>O</option>
+                <option>P</option>
+                <option>Q</option>
+                <option>R</option>
+                <option>S</option>
+                <option>T</option>
+                <option>U</option>
+                <option>V</option>
+                <option>W</option>
+                <option>X</option>
+                <option>Y</option>
+                <option>Z</option>
+              </select>
+            </div>
+            <!-- Demografía -->
+            <div class="dir-filter-group">
+              <label class="dir-filter-label"
+                ><i class="fas fa-users"></i> Demografía</label
+              >
+              <select class="dir-select" id="dirDemographic">
+                <option value="">Todas</option>
+                <option value="Shounen">Shōnen</option>
+                <option value="Shoujo">Shōjo</option>
+                <option value="Seinen">Seinen</option>
+                <option value="Josei">Josei</option>
+                <option value="Kids">Infantil</option>
+              </select>
+            </div>
+            <!-- Tipo -->
+            <div class="dir-filter-group">
+              <label class="dir-filter-label"
+                ><i class="fas fa-film"></i> Tipo</label
+              >
+              <select class="dir-select" id="dirType">
+                <option value="">Todos</option>
+                <option value="tv">TV</option>
+                <option value="movie">Película</option>
+                <option value="ova">OVA</option>
+                <option value="ona">ONA</option>
+                <option value="special">Especial</option>
+                <option value="music">Music</option>
+              </select>
+            </div>
+            <!-- Estado -->
+            <div class="dir-filter-group">
+              <label class="dir-filter-label"
+                ><i class="fas fa-broadcast-tower"></i> Estado</label
+              >
+              <select class="dir-select" id="dirStatus">
+                <option value="">Todos</option>
+                <option value="airing">En Emisión</option>
+                <option value="complete">Finalizado</option>
+                <option value="upcoming">Próximamente</option>
+              </select>
+            </div>
+            <!-- Año -->
+            <div class="dir-filter-group">
+              <label class="dir-filter-label"
+                ><i class="fas fa-calendar"></i> Año</label
+              >
+              <select class="dir-select" id="dirYear">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <!-- Temporada -->
+            <div class="dir-filter-group">
+              <label class="dir-filter-label"
+                ><i class="fas fa-cloud-sun"></i> Temporada</label
+              >
+              <select class="dir-select" id="dirSeason">
+                <option value="">Todas</option>
+                <option value="winter">❄️ Invierno</option>
+                <option value="spring">🌸 Primavera</option>
+                <option value="summer">☀️ Verano</option>
+                <option value="fall">🍂 Otoño</option>
+              </select>
+            </div>
+          </div>
+          <!-- Botones de acción -->
+          <div class="dir-action-row">
+            <button
+              class="btn btn-accent dir-filter-btn"
+              onclick="applyDirectoryFilters()"
+            >
+              <i class="fas fa-filter"></i> Filtrar
+            </button>
+            <button class="btn dir-random-btn" onclick="dirRandomAnime()">
+              <i class="fas fa-dice"></i> ¡Sorpréndeme!
+            </button>
+            <button
+              class="btn btn-secondary"
+              onclick="
+                document
+                  .querySelectorAll('.dir-select')
+                  .forEach((s) => (s.selectedIndex = 0))
+              "
+            >
+              <i class="fas fa-undo"></i> Limpiar
+            </button>
+          </div>
+        </div>
+
+        <!-- Grid de resultados -->
+        <div class="anime-grid" id="dirGrid" style="margin-top: 1.5rem">
+          <p
+            style="
+              color: var(--text-muted);
+              grid-column: 1/-1;
+              text-align: center;
+              padding: 3rem;
+            "
+          >
+            <i class="fas fa-filter"></i> Usa los filtros y presiona
+            <strong>Filtrar</strong> para buscar.
+          </p>
+        </div>
+      </main>
+
       <!-- SIDEBAR RIGHT -->
       <aside class="sidebar-right" id="sidebarRight">
         <div class="sidebar-section">
@@ -838,12 +1116,13 @@
             <!-- Login -->
             <div class="account-panel active" id="panelLogin">
               <div class="input-group">
-                <label class="input-label">Usuario</label>
+                <label class="input-label">Correo electrónico</label>
                 <input
-                  type="text"
+                  type="email"
                   class="input-field"
                   id="loginUser"
-                  placeholder="Tu nombre de usuario"
+                  placeholder="usuario@correo.com"
+                  autocomplete="email"
                 />
               </div>
               <div class="input-group">
@@ -853,10 +1132,11 @@
                   class="input-field"
                   id="loginPass"
                   placeholder="••••••••"
+                  autocomplete="current-password"
                 />
               </div>
               <button
-                class="btn btn-accent"
+                class="btn btn-accent btn-primary"
                 style="width: 100%"
                 onclick="doLogin()"
               >
@@ -872,6 +1152,17 @@
                   class="input-field"
                   id="regUser"
                   placeholder="Elige un nombre único"
+                  autocomplete="username"
+                />
+              </div>
+              <div class="input-group">
+                <label class="input-label">Correo electrónico</label>
+                <input
+                  type="email"
+                  class="input-field"
+                  id="regEmail"
+                  placeholder="usuario@correo.com"
+                  autocomplete="email"
                 />
               </div>
               <div class="input-group">
@@ -881,10 +1172,11 @@
                   class="input-field"
                   id="regPass"
                   placeholder="Mínimo 6 caracteres"
+                  autocomplete="new-password"
                 />
               </div>
               <button
-                class="btn btn-accent"
+                class="btn btn-accent btn-primary"
                 style="width: 100%"
                 onclick="doRegister()"
               >
@@ -990,6 +1282,17 @@
           "
         >
           <i class="fas fa-calendar-alt"></i> Calendario
+        </button>
+        <div class="mld-divider"></div>
+        <div class="mld-title">Explorar</div>
+        <button
+          class="mld-item"
+          onclick="
+            loadDirectoryView();
+            mbnToggleLibrary();
+          "
+        >
+          <i class="fas fa-th-list"></i> Directorio
         </button>
         <div class="mld-divider"></div>
         <div class="mld-title">Biblioteca</div>
