@@ -499,6 +499,33 @@ async function abrirContinuarViendo(malId, epNumber) {
   }
 }
 
+// ─── ABRIR EPISODIO DIRECTO DESDE "CAPÍTULOS RECIENTES" ─────
+async function abrirEpisodioDirecto(malId, epNumber) {
+  // Cargar el anime si no está ya en contexto
+  if (!animeActualMAL || animeActualMAL.mal_id != malId) {
+    await verDetallesAnime(malId);
+    await new Promise(resolve => setTimeout(resolve, 900));
+  }
+
+  const epList = animeActualBackend?.episodes ||
+                 animeActualBackend?.list ||
+                 animeActualBackend?.episodeList || [];
+
+  const epObj = epList.find(e => (e.number || e.episode || e.id) == epNumber);
+
+  if (epObj) {
+    procesarStreamingEpisodio(epObj);
+  } else {
+    const baseUrl = animeActualBackend?.url || "";
+    procesarStreamingEpisodio({
+      number: epNumber,
+      url: baseUrl
+        ? (baseUrl.endsWith("/") ? `${baseUrl}${epNumber}` : `${baseUrl}-${epNumber}`)
+        : "",
+    });
+  }
+}
+
 function renderContinueWatching() {
   const container = document.getElementById("continueWatchingGrid");
   if (!container) return;
@@ -558,7 +585,7 @@ function setSearchState(state) {
     if (titleEl) {
       titleEl.textContent = currentFilter === "movie"
         ? "Películas, OVAs y Especiales"
-        : "Animes Más Populares";
+        : "Puede Interesarte";
     }
     renderGrid(filteredAnimeData);
     renderFollowingToday();
@@ -1293,6 +1320,7 @@ async function loadAnime() {
 
     buildHero();
     loadSidebarAiring();
+    loadRecentEpisodes(); // [NUEVO] Capítulos Recientes
     renderFollowingToday();
     renderContinueWatching();
   } catch (err) {
@@ -1360,7 +1388,7 @@ function applyFilter(filterType) {
     filteredAnimeData = localAnimeData.filter(a =>
       (!["Movie"].includes(a.type) || !a.type) && !esContenidoAdulto(a)
     );
-    if (titleEl) titleEl.textContent = "Animes Más Populares";
+    if (titleEl) titleEl.textContent = "Puede Interesarte";
   }
 
   mostrarVista("homeView");
@@ -1778,285 +1806,7 @@ function cargarEnPlayer(url) {
   }
 
   if (loader) loader.classList.add("hidden");
-
-  // Show one-time mobile seek hint on first native video load
-  if (esMP4 && !sessionStorage.getItem("rik_seek_hint_shown")) {
-    sessionStorage.setItem("rik_seek_hint_shown", "1");
-    const wrap = document.getElementById("playerVideoWrap");
-    if (wrap && window.innerWidth <= 768) {
-      const hint = document.createElement("div");
-      hint.className = "seek-hint";
-      hint.innerHTML = `<i class="fas fa-hand-point-left"></i> Doble toque para ±${SEEK_SECONDS}s`;
-      wrap.appendChild(hint);
-      setTimeout(() => hint.remove(), 3600);
-    }
-  }
 }
-
-// ═══════════════════════════════════════════════════
-// SEEK OVERLAY — Adelantar/Retroceder estilo YouTube
-// Doble toque en móvil | teclas ← → en PC
-// Solo funciona con video nativo (.mp4).
-// Para iframes muestra un aviso informativo.
-// ═══════════════════════════════════════════════════
-
-const SEEK_SECONDS = 10; // segundos a adelantar/retroceder
-
-let _seekFeedbackTimer = null;
-
-function _getNativeVideo() {
-  const v = document.getElementById("videoPlayerNative");
-  return (v && v.style.display !== "none" && v.src) ? v : null;
-}
-
-// Muestra el ripple de feedback encima del video
-// side: "left" | "right"   delta: número de segundos (positivo o negativo)
-function _showSeekFeedback(side, delta) {
-  const wrap = document.getElementById("playerVideoWrap");
-  if (!wrap) return;
-
-  // Reutilizar o crear el elemento
-  let fb = document.getElementById(`seekFb_${side}`);
-  if (!fb) {
-    fb = document.createElement("div");
-    fb.id = `seekFb_${side}`;
-    fb.className = `seek-feedback seek-feedback--${side}`;
-    wrap.appendChild(fb);
-  }
-
-  const sign  = delta > 0 ? "+" : "";
-  const label = `${sign}${delta}s`;
-  const icon  = delta > 0 ? "fa-forward" : "fa-backward";
-  fb.innerHTML = `<i class="fas ${icon}"></i><span>${label}</span>`;
-
-  // Reset animation
-  fb.classList.remove("seek-feedback--active");
-  void fb.offsetWidth; // reflow
-  fb.classList.add("seek-feedback--active");
-
-  clearTimeout(_seekFeedbackTimer);
-  _seekFeedbackTimer = setTimeout(() => {
-    fb.classList.remove("seek-feedback--active");
-  }, 700);
-}
-
-// Realiza el seek efectivo (solo en video nativo)
-// Devuelve true si tuvo éxito, false si era iframe
-function seekVideo(delta) {
-  const v = _getNativeVideo();
-  if (!v) {
-    // Iframe: informar al usuario
-    showToast(`${delta > 0 ? "⏩" : "⏪"} Control de tiempo no disponible en este servidor`);
-    return false;
-  }
-  try {
-    v.currentTime = Math.max(0, Math.min(v.duration || 9999, v.currentTime + delta));
-  } catch(e) { /* sin permisos */ }
-  return true;
-}
-
-// ── Teclado (PC) ───────────────────────────────────
-// ← → para seek | Space para play/pause | F para fullscreen
-document.addEventListener("keydown", function(e) {
-  // Solo actuar si el playerView está visible y el foco no está en un input
-  const pv = document.getElementById("playerView");
-  if (!pv || pv.style.display === "none") return;
-  const tag = document.activeElement?.tagName?.toLowerCase();
-  if (tag === "input" || tag === "textarea" || tag === "select") return;
-
-  switch(e.key) {
-    case "ArrowRight":
-      e.preventDefault();
-      if (seekVideo(SEEK_SECONDS)) _showSeekFeedback("right", +SEEK_SECONDS);
-      break;
-    case "ArrowLeft":
-      e.preventDefault();
-      if (seekVideo(-SEEK_SECONDS)) _showSeekFeedback("left", -SEEK_SECONDS);
-      break;
-    case " ":
-    case "k": {
-      e.preventDefault();
-      const v = _getNativeVideo();
-      if (v) { v.paused ? v.play() : v.pause(); }
-      break;
-    }
-    case "f":
-    case "F": {
-      const v = _getNativeVideo();
-      if (v) {
-        if (document.fullscreenElement) document.exitFullscreen?.();
-        else v.requestFullscreen?.();
-      }
-      break;
-    }
-    case "ArrowUp":
-    case "ArrowDown": {
-      const v = _getNativeVideo();
-      if (v) {
-        e.preventDefault();
-        v.volume = Math.max(0, Math.min(1, v.volume + (e.key === "ArrowUp" ? 0.1 : -0.1)));
-        showToast(`🔊 Volumen: ${Math.round(v.volume * 100)}%`);
-      }
-      break;
-    }
-  }
-});
-
-// ── Toque doble (Móvil) ────────────────────────────
-// El problema con iframes: capturan todos los eventos táctiles.
-// Solución: una capa overlay ENCIMA del iframe que intercepta toques,
-// procesa el seek, y se desactiva temporalmente para pasar el toque al iframe.
-(function _initTouchSeek() {
-  let _tapTimer    = null;
-  let _tapCount    = 0;
-  let _tapSide     = null;
-  let _tapAccum    = 0;
-  let _overlay     = null;
-  let _passThrough = false; // cuando true, el overlay está "transparente"
-
-  function _getOrCreateOverlay() {
-    if (_overlay) return _overlay;
-    const wrap = document.getElementById("playerVideoWrap");
-    if (!wrap) return null;
-
-    _overlay = document.createElement("div");
-    _overlay.id = "touchSeekOverlay";
-    _overlay.style.cssText = [
-      "position:absolute",
-      "inset:0",
-      "z-index:15",          // encima del iframe (z-index:0) pero debajo de botones (z-index:20+)
-      "touch-action:none",   // evita scroll accidental
-      "background:transparent",
-      "cursor:default",
-    ].join(";");
-    wrap.appendChild(_overlay);
-    return _overlay;
-  }
-
-  // Deshabilita el overlay brevemente para que el toque llegue al iframe
-  function _passThroughOnce(ms) {
-    if (!_overlay) return;
-    _passThrough = true;
-    _overlay.style.pointerEvents = "none";
-    setTimeout(() => {
-      _passThrough = false;
-      if (_overlay) _overlay.style.pointerEvents = "auto";
-    }, ms || 350);
-  }
-
-  function _handleTap(touchX, wrapRect) {
-    const relX = (touchX - wrapRect.left) / wrapRect.width;
-
-    // Dividir en 3 zonas: izquierda (<35%), derecha (>65%), centro
-    const side = relX < 0.35 ? "left" : (relX > 0.65 ? "right" : "center");
-
-    if (side === "center") {
-      // Toque en centro: play/pause nativo, o pasar al iframe
-      clearTimeout(_tapTimer);
-      _tapTimer = setTimeout(() => {
-        const v = _getNativeVideo();
-        if (v) {
-          v.paused ? v.play() : v.pause();
-        } else {
-          // Iframe: pasar el toque
-          _passThroughOnce(400);
-        }
-        _tapCount = 0;
-        _tapAccum = 0;
-        _tapSide  = null;
-      }, 260);
-      return;
-    }
-
-    // Laterales: acumular toques
-    if (_tapSide !== side) {
-      _tapCount = 0;
-      _tapAccum = 0;
-      _tapSide  = side;
-    }
-
-    clearTimeout(_tapTimer);
-    _tapCount++;
-    const delta = side === "right" ? SEEK_SECONDS : -SEEK_SECONDS;
-    _tapAccum  += delta;
-
-    _tapTimer = setTimeout(() => {
-      if (_tapCount >= 2) {
-        // Seek confirmado
-        const v = _getNativeVideo();
-        if (v) {
-          // Video nativo: seek real
-          if (seekVideo(_tapAccum)) _showSeekFeedback(side, _tapAccum);
-        } else {
-          // Iframe: solo feedback visual (seek no es posible cross-origin)
-          _showSeekFeedback(side, _tapAccum);
-          showToast(`${_tapAccum > 0 ? "⏩" : "⏪"} Control de tiempo no disponible en este servidor`);
-        }
-      } else {
-        // Un solo toque: pasar al iframe normalmente
-        _passThroughOnce(400);
-      }
-      _tapCount = 0;
-      _tapAccum = 0;
-      _tapSide  = null;
-    }, 260);
-  }
-
-  function _attachTouchSeek() {
-    const wrap = document.getElementById("playerVideoWrap");
-    if (!wrap) return;
-
-    // Solo en móvil / touch
-    if (!("ontouchstart" in window) && navigator.maxTouchPoints === 0) return;
-
-    const ov = _getOrCreateOverlay();
-    if (!ov || ov._touchAttached) return;
-    ov._touchAttached = true;
-
-    // touchstart: registrar posición inicial
-    let _startX = 0;
-    let _startY = 0;
-    let _moved  = false;
-
-    ov.addEventListener("touchstart", function(e) {
-      _startX = e.touches[0].clientX;
-      _startY = e.touches[0].clientY;
-      _moved  = false;
-    }, { passive: true });
-
-    ov.addEventListener("touchmove", function(e) {
-      const dx = Math.abs(e.touches[0].clientX - _startX);
-      const dy = Math.abs(e.touches[0].clientY - _startY);
-      if (dx > 8 || dy > 8) _moved = true;
-    }, { passive: true });
-
-    ov.addEventListener("touchend", function(e) {
-      const pv = document.getElementById("playerView");
-      if (!pv || pv.style.display === "none") return;
-      if (_moved) return; // fue un scroll/swipe, ignorar
-
-      // Ignorar toques sobre botones internos
-      if (e.target.closest("button, .autoplay-card")) return;
-
-      _handleTap(e.changedTouches[0].clientX, wrap.getBoundingClientRect());
-    }, { passive: true });
-  }
-
-  // Inicializar
-  document.addEventListener("DOMContentLoaded", function() {
-    setTimeout(_attachTouchSeek, 300);
-  });
-
-  // Re-adjuntar cuando se muestra el playerView
-  const _origMostrarVista = window.mostrarVista;
-  if (typeof _origMostrarVista === "function") {
-    window.mostrarVista = function(vista) {
-      _origMostrarVista(vista);
-      if (vista === "playerView") setTimeout(_attachTouchSeek, 200);
-    };
-  }
-})();
-
 
 // ─── [NUEVO] PERSONAJES (JIKAN) ─────────────────────
 async function fetchCharacters(malId) {
@@ -2807,6 +2557,17 @@ async function verDetallesAnime(animeId) {
   // Poblar UI básica
   document.getElementById("detPoster").style.backgroundImage = `url('${anime.images.jpg.large_image_url || anime.images.jpg.image_url}')`;
   document.getElementById("detTitle").textContent     = anime.title;
+  // [NUEVO] Subtítulo del anime: muestra el título alternativo
+  const detAltTitleEl = document.getElementById("detAltTitle");
+  if (detAltTitleEl) {
+    const altTitle = (anime.title_english && anime.title_english !== anime.title)
+      ? anime.title_english
+      : (anime.title_japanese && anime.title_japanese !== anime.title)
+        ? anime.title_japanese
+        : "";
+    detAltTitleEl.textContent = altTitle;
+    detAltTitleEl.style.display = altTitle ? "block" : "none";
+  }
   document.getElementById("detSynopsis").textContent  = "Cargando...";
 
   const meta = document.getElementById("detMeta");
@@ -2935,8 +2696,10 @@ async function verDetallesAnime(animeId) {
     if (infoData) {
       animeActualBackend = infoData;
 
-      if (animeActualBackend.title)
+      if (animeActualBackend.title) {
         document.getElementById("detTitle").textContent = animeActualBackend.title;
+        // Keep alt title visible (already set from MAL data above)
+      }
       document.getElementById("detSynopsis").textContent =
         animeActualBackend.description || animeActualBackend.synopsis || anime.synopsis || "Sin descripción.";
 
@@ -4189,19 +3952,21 @@ function toggleDirFilters() {
 }
 
 // ═══════════════════════════════════════════════════
-// AUTOPLAY (Controles de Maratón)
+// OMITIR INTRO + AUTOPLAY (Controles de Maratón)
 // ═══════════════════════════════════════════════════
 
 let _autoplayTimer  = null;
 let _autoplayCount  = 10;
 let _autoplayActive = false;
-let _autoplayPaused = false;  // NEW: tracks if the user paused the countdown
 
-// Autoplay: appears when ~10s remain (native) or via timer (iframe)
+
+
+// Autoplay: aparece tarjeta flotante cuando quedan 10s (nativo) o tras timer (iframe)
 function _initAutoplay() {
   const native = document.getElementById("videoPlayerNative");
+  const iframe = document.getElementById("videoPlayer");
 
-  // For native video
+  // Para video nativo
   if (native && native.style.display !== "none") {
     native.addEventListener("timeupdate", function _ap() {
       const remaining = native.duration - native.currentTime;
@@ -4214,10 +3979,11 @@ function _initAutoplay() {
     return;
   }
 
-  // For iframe: show autoplay after estimated time (20 min), only if next episode exists
+  // Para iframe: mostrar autoplay después de un tiempo estimado (20 min)
+  // Solo si existe un episodio siguiente
   const lista = animeActualBackend?.episodes || animeActualBackend?.list || animeActualBackend?.episodeList || [];
   const idx   = lista.findIndex(e => String(e.number) === String(numeroEpisodioActual));
-  if (idx === -1 || idx >= lista.length - 1) return; // no next episode
+  if (idx === -1 || idx >= lista.length - 1) return; // no hay siguiente
 
   const IFRAME_AUTOPLAY_MS = 20 * 60 * 1000; // 20 min
   _autoplayTimer = setTimeout(() => {
@@ -4247,10 +4013,6 @@ function _showAutoplayCard() {
   card.id        = "autoplayCard";
   card.className = "autoplay-card";
   card.innerHTML = `
-    <div class="apc-loading-overlay" id="apcLoadingOverlay" style="display:none;">
-      <div class="apc-spinner"></div>
-      <span>Cargando episodio...</span>
-    </div>
     <div class="apc-poster" style="background-image:url('${img}')"></div>
     <div class="apc-info">
       <div class="apc-label">A continuación</div>
@@ -4261,9 +4023,6 @@ function _showAutoplayCard() {
         <button class="apc-play" id="apcPlayBtn">
           <i class="fas fa-play"></i> Reproducir (<span id="apcCount">10</span>s)
         </button>
-        <button class="apc-pause" id="apcPauseBtn" title="Pausar cuenta regresiva">
-          <i class="fas fa-pause"></i>
-        </button>
         <button class="apc-cancel" onclick="cancelarAutoplay()">Cancelar</button>
       </div>
     </div>
@@ -4273,69 +4032,39 @@ function _showAutoplayCard() {
   if (wrap) wrap.appendChild(card);
 
   document.getElementById("apcPlayBtn").onclick = () => {
-    _triggerAutoplayNext(nextEp, idx);
+    cancelarAutoplay();
+    navegarEpisodio(1);
   };
 
-  // NEW: pause/resume button for the countdown
-  const pauseBtn = document.getElementById("apcPauseBtn");
-  pauseBtn.onclick = () => {
-    _autoplayPaused = !_autoplayPaused;
-    pauseBtn.innerHTML = _autoplayPaused
-      ? `<i class="fas fa-play"></i>`
-      : `<i class="fas fa-pause"></i>`;
-    pauseBtn.title = _autoplayPaused ? "Reanudar cuenta regresiva" : "Pausar cuenta regresiva";
-  };
-
-  _autoplayCount  = 10;
-  _autoplayPaused = false;
+  _autoplayCount = 10;
   const fill    = document.getElementById("apcBarFill");
   const counter = document.getElementById("apcCount");
 
   _autoplayTimer = setInterval(() => {
-    if (_autoplayPaused) return; // respect pause
     _autoplayCount--;
     if (counter) counter.textContent = _autoplayCount;
     if (fill)    fill.style.width    = `${(10 - _autoplayCount) * 10}%`;
     if (_autoplayCount <= 0) {
-      _triggerAutoplayNext(nextEp, idx);
+      cancelarAutoplay();
+      navegarEpisodio(1);
     }
   }, 1000);
-}
-
-// NEW: shows loading state then navigates
-function _triggerAutoplayNext(nextEp, idx) {
-  clearInterval(_autoplayTimer);
-  _autoplayActive = false;
-
-  // Show loading overlay on the card
-  const overlay = document.getElementById("apcLoadingOverlay");
-  const actionsEl = document.querySelector(".apc-actions");
-  if (overlay) overlay.style.display = "flex";
-  if (actionsEl) actionsEl.style.display = "none";
-
-  // Brief delay to let loading show, then navigate
-  setTimeout(() => {
-    const card = document.getElementById("autoplayCard");
-    if (card) card.remove();
-    navegarEpisodio(1);
-  }, 600);
 }
 
 function cancelarAutoplay() {
   clearInterval(_autoplayTimer);
   clearTimeout(_autoplayTimer);
   _autoplayActive = false;
-  _autoplayPaused = false;
   const card = document.getElementById("autoplayCard");
   if (card) card.remove();
 }
 
-// Hook _initAutoplay after loading into player
+// Enganchar _initAutoplay después de cargar en el player
 const _origCargarEnPlayer = cargarEnPlayer;
 cargarEnPlayer = function(url) {
   _origCargarEnPlayer(url);
   cancelarAutoplay();
-  // Wait for video to be visible and have src
+  // Esperar a que el video esté visible y con src
   setTimeout(() => {
     _initAutoplay();
   }, 800);
@@ -4348,3 +4077,200 @@ document.addEventListener("DOMContentLoaded", () => {
     syncUserFromServer();
   }
 });
+// ═══════════════════════════════════════════════════
+// [NUEVO] CAPÍTULOS RECIENTES
+// Muestra los últimos 15 episodios estrenados usando
+// Jikan /watch/episodes/popular y /seasons/now
+// ═══════════════════════════════════════════════════
+
+let _recentEpsCache = null;
+
+// ── Helpers para calcular el "episodio más reciente" estimado ──
+// Jikan no expone el número exacto del último episodio emitido,
+// pero podemos calcularlo: contamos cuántas semanas han pasado desde
+// el inicio de emisión del anime y cuántos eps debería tener ya.
+function _calcLatestEpisode(anime) {
+  // Si Jikan provee aired.from, calcular eps emitidos por semana
+  const startStr = anime.aired?.from;
+  if (startStr) {
+    const start   = new Date(startStr);
+    const now     = new Date();
+    const weeksDiff = Math.floor((now - start) / (7 * 24 * 60 * 60 * 1000));
+    const estimated = Math.max(1, weeksDiff + 1);
+    // Respetar el tope de eps declarados si existe
+    const maxEps = anime.episodes || 999;
+    return Math.min(estimated, maxEps);
+  }
+  return null; // desconocido
+}
+
+async function loadRecentEpisodes() {
+  const grid   = document.getElementById("recentEpsGrid");
+  const status = document.getElementById("recentEpsStatus");
+  if (!grid) return;
+
+  // Caché en sessionStorage para no repetir llamada
+  try {
+    const cached = sessionStorage.getItem("rik_recent_eps");
+    if (cached) {
+      _recentEpsCache = JSON.parse(cached);
+      _renderRecentEps(_recentEpsCache);
+      return;
+    }
+  } catch(e) { /* ignore */ }
+
+  try {
+    // /schedules devuelve SOLO animes Currently Airing, ordenados por día de emisión.
+    // Pedimos los primeros 25 (semanal) y tomamos los 15 con fecha de inicio más reciente
+    // → son los más "nuevos" de la temporada actual, garantizando episodios actuales.
+    const res  = await fetch(`${JIKAN}/schedules?limit=25&sfw=true`);
+    const data = await res.json();
+
+    let animes = (data.data || [])
+      .filter(a => a.airing === true && !esContenidoAdulto(a))
+      // Ordenar por fecha de inicio descendente (más recientes primero)
+      .sort((a, b) => {
+        const da = a.aired?.from ? new Date(a.aired.from) : new Date(0);
+        const db = b.aired?.from ? new Date(b.aired.from) : new Date(0);
+        return db - da;
+      })
+      .slice(0, 15);
+
+    // Si schedules devuelve poco, complementar con seasons/now
+    if (animes.length < 8) {
+      const res2  = await fetch(`${JIKAN}/seasons/now?limit=20&sfw=true`);
+      const data2 = await res2.json();
+      const extra = (data2.data || [])
+        .filter(a => a.airing === true && !esContenidoAdulto(a) && !animes.find(x => x.mal_id === a.mal_id))
+        .sort((a, b) => {
+          const da = a.aired?.from ? new Date(a.aired.from) : new Date(0);
+          const db = b.aired?.from ? new Date(b.aired.from) : new Date(0);
+          return db - da;
+        });
+      animes = [...animes, ...extra].slice(0, 15);
+    }
+
+    // Convertir a formato de items con episodio calculado
+    const items = animes.map(a => {
+      const latestEp = _calcLatestEpisode(a);
+      return {
+        entry: a,
+        latestEp,
+        // Día de emisión en español
+        broadcastDay: _broadcastDayEs(a.broadcast?.day),
+      };
+    });
+
+    _recentEpsCache = items;
+    try { sessionStorage.setItem("rik_recent_eps", JSON.stringify(items)); } catch(e) {}
+    _renderRecentEps(items);
+    if (status) status.textContent = `${items.length} en emisión esta semana`;
+
+  } catch(e) {
+    console.warn("[RecentEps]", e.message);
+    if (grid) grid.innerHTML = `<p style="color:var(--text-muted);padding:1rem;font-size:0.85rem;"><i class="fas fa-exclamation-triangle"></i> No se pudieron cargar los capítulos recientes.</p>`;
+  }
+}
+
+function _broadcastDayEs(day) {
+  if (!day) return "";
+  const map = {
+    mondays:"Lunes", tuesdays:"Martes", wednesdays:"Miércoles",
+    thursdays:"Jueves", fridays:"Viernes", saturdays:"Sábado", sundays:"Domingo"
+  };
+  return map[day.toLowerCase()] || day;
+}
+
+function _renderRecentEps(items) {
+  const grid = document.getElementById("recentEpsGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
+
+  // Detect today's weekday to highlight "hoy"
+  const todayNames = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+  const todayEs    = todayNames[new Date().getDay()];
+
+  items.forEach(item => {
+    const anime      = item.entry;
+    if (!anime) return;
+
+    const img        = anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || "";
+    const title      = anime.title || "Sin título";
+    const malId      = anime.mal_id;
+    const latestEp   = item.latestEp;
+    const day        = item.broadcastDay || "";
+    const isToday    = day && day === todayEs;
+    const epLabel    = latestEp ? `Ep. ${latestEp}` : "Nuevo";
+    const subLabel   = isToday
+      ? `<span class="rec-ep-today">HOY</span> ${day}`
+      : day || "En emisión";
+
+    const card = document.createElement("div");
+    card.className = "rec-ep-card" + (isToday ? " rec-ep-card--today" : "");
+    card.innerHTML = `
+      <div class="rec-ep-thumb" style="background-image:url('${img}')">
+        <div class="rec-ep-play-overlay"><i class="fas fa-play"></i></div>
+        <span class="rec-ep-badge">${epLabel}</span>
+        ${isToday ? '<span class="rec-ep-live-dot"></span>' : ""}
+      </div>
+      <div class="rec-ep-info">
+        <div class="rec-ep-title" title="${title}">${title}</div>
+        <div class="rec-ep-sub">${subLabel}</div>
+      </div>
+    `;
+    card.addEventListener("click", () => {
+      if (!localAnimeData.find(a => a.mal_id === malId)) localAnimeData.push(anime);
+      const epTarget = latestEp || 1;
+      abrirEpisodioDirecto(malId, epTarget);
+    });
+    grid.appendChild(card);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// [NUEVO] MODO CINE
+// Oscurece todo excepto el reproductor de video
+// ═══════════════════════════════════════════════════
+
+let _cinemaModeActive = false;
+
+function toggleCinemaMode() {
+  _cinemaModeActive = !_cinemaModeActive;
+  const btn     = document.getElementById("cinemaModeBtn");
+  const overlay = document.getElementById("cinemaOverlay");
+  const wrap    = document.getElementById("playerVideoWrap");
+  const pv      = document.getElementById("playerView");
+
+  document.body.classList.toggle("cinema-mode", _cinemaModeActive);
+  if (overlay) overlay.classList.toggle("active", _cinemaModeActive);
+  if (wrap)    wrap.classList.toggle("cinema-active", _cinemaModeActive);
+
+  if (btn) {
+    btn.classList.toggle("active", _cinemaModeActive);
+    btn.title = _cinemaModeActive ? "Salir del Modo Cine" : "Modo Cine";
+    btn.innerHTML = _cinemaModeActive
+      ? '<i class="fas fa-compress"></i>'
+      : '<i class="fas fa-film"></i>';
+  }
+
+  // Keyboard shortcut: ESC to exit
+  if (_cinemaModeActive) {
+    document.addEventListener("keydown", _exitCinemaOnEsc);
+    showToast("🎬 Modo Cine — Presiona ESC o haz clic fuera para salir");
+  } else {
+    document.removeEventListener("keydown", _exitCinemaOnEsc);
+  }
+}
+
+function _exitCinemaOnEsc(e) {
+  if (e.key === "Escape" && _cinemaModeActive) toggleCinemaMode();
+}
+
+// Desactivar modo cine al cambiar de vista
+const _origMostrarVistaGlobal = window.mostrarVista;
+if (typeof _origMostrarVistaGlobal === "function") {
+  window.mostrarVista = function(vista) {
+    if (_cinemaModeActive && vista !== "playerView") toggleCinemaMode();
+    _origMostrarVistaGlobal(vista);
+  };
+}
