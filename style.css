@@ -73,7 +73,7 @@ body::before {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 2rem;
+  padding: 0 2rem 0 0;
   height: 68px;
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border);
@@ -94,6 +94,9 @@ body::before {
   letter-spacing: -0.5px;
   transition: var(--transition);
   user-select: none;
+  width: 220px;
+  flex-shrink: 0;
+  padding-left: 1.5rem;
 }
 .logo:hover { opacity: 0.85; }
 .logo i { font-size: 1.3rem; }
@@ -2233,7 +2236,7 @@ body::before {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 2rem;
+  padding: 0 2rem 0 0;
   height: 68px;
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border);
@@ -2254,6 +2257,9 @@ body::before {
   letter-spacing: -0.5px;
   transition: var(--transition);
   user-select: none;
+  width: 220px;
+  flex-shrink: 0;
+  padding-left: 1.5rem;
 }
 .logo:hover { opacity: 0.85; }
 .logo i { font-size: 1.3rem; }
@@ -5253,13 +5259,15 @@ body.cinema-mode .player-video-wrap {
 
 .main-logo {
   height: 40px;
-  width: auto;
+  width: 100%;
   object-fit: contain;
+  object-position: left center;
   display: block;
 }
 
 @media (min-width: 768px) {
   .main-logo {
     height: 55px;
+    width: 100%;
   }
 }
