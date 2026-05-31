@@ -526,7 +526,8 @@ async function abrirEpisodioDirecto(malId, epNumber) {
   }
 }
 
-function renderContinueWatching() {
+/* [PATCHED v4] function renderContinueWatching() { */
+function renderContinueWatching_ORIG() {
   const container = document.getElementById("continueWatchingGrid");
   if (!container) return;
   const section = document.getElementById("continueWatchingSection");
@@ -565,7 +566,7 @@ function renderContinueWatching() {
 // ─── [NUEVO] CONTROL DE SECCIONES HOME ────────
 // Centraliza la lógica de mostrar/ocultar secciones según estado de búsqueda.
 // Llamar con "active" al iniciar búsqueda, "idle" al limpiarla.
-function setSearchState(state) {
+/* [PATCHED v4] */ function setSearchState_ORIG(state) {
   searchState = state;
   const searching = state === "active";
 
@@ -621,7 +622,7 @@ function pushUrl(animeId, epNumber) {
 }
 
 function clearUrl() {
-  history.pushState({}, "", location.pathname);
+  history.pushState({}, "", "/");
 }
 
 // [NUEVO] Fallback de deep linking: obtiene un anime por ID directamente desde Jikan
@@ -1143,9 +1144,9 @@ function openUserSection() {
 }
 
 // ─── VISTAS ───────────────────────────────────
-const VIEWS = ["homeView", "detailsView", "airingView", "calendarView", "favoritesView", "playlistsView", "playerView", "directoryView"];
+const VIEWS = ["homeView", "detailsView", "airingView", "calendarView", "favoritesView", "playlistsView", "playerView", "directoryView", "sectionPageView"];
 
-function mostrarVista(vista) {
+/* [PATCHED v4] */ function mostrarVista_ORIG(vista) {
   // ── FIX: Detener audio/video al abandonar playerView por CUALQUIER vía ──
   if (vista !== "playerView") {
     const iframe = document.getElementById("videoPlayer");
@@ -1468,7 +1469,7 @@ let calendarDataCache = null;
 const DAYS_ES = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
 const DAYS_EN = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
 
-async function loadCalendarView() {
+/* [PATCHED v4] */ async function loadCalendarView_ORIG() {
   mostrarVista("calendarView");
   if (calendarDataCache) { renderCalendar(calendarDataCache); return; }
 
@@ -1488,7 +1489,7 @@ async function loadCalendarView() {
   }
 }
 
-function renderCalendar(animes) {
+/* [PATCHED v4] */ function renderCalendar_ORIG(animes) {
   const grid   = document.getElementById("calendarGrid");
   const todayN = new Date().getDay();
   const todayIdx = todayN === 0 ? 6 : todayN - 1;
@@ -3670,7 +3671,7 @@ const GEN_MAP = {
 
 const _genreCache = {}; // genero → resultados ya descargados
 
-async function filtrarPorGenero(genero, pillEl) {
+/* [PATCHED v4] */ async function filtrarPorGenero_ORIG(genero, pillEl) {
   generoActivo = genero;
   document.querySelectorAll(".genre-pill").forEach(p => p.classList.remove("active"));
   pillEl.classList.add("active");
@@ -3747,7 +3748,7 @@ let _catalogPage    = 1;
 let _catalogTotal   = 1;
 const CATALOG_LIMIT = 24;
 
-async function loadCatalogPage(page) {
+/* [PATCHED v4] */ async function loadCatalogPage_ORIG(page) {
   const grid   = document.getElementById("animeGrid");
   const pgInfo = document.getElementById("paginationInfo");
   const btnPrev = document.getElementById("btnCatalogPrev");
@@ -3782,11 +3783,11 @@ async function loadCatalogPage(page) {
   }
 }
 
-function catalogPrev() {
+/* [PATCHED v4] */ function catalogPrev_ORIG() {
   if (_catalogPage > 1) loadCatalogPage(_catalogPage - 1);
 }
 
-function catalogNext() {
+/* [PATCHED v4] */ function catalogNext_ORIG() {
   if (_catalogPage < _catalogTotal) loadCatalogPage(_catalogPage + 1);
 }
 
@@ -4181,7 +4182,7 @@ function _broadcastDayEs(day) {
   return map[day.toLowerCase()] || day;
 }
 
-function _renderRecentEps(items) {
+/* [PATCHED v4] */ function _renderRecentEps_ORIG(items) {
   const grid = document.getElementById("recentEpsGrid");
   if (!grid) return;
   grid.innerHTML = "";
@@ -4273,4 +4274,1046 @@ if (typeof _origMostrarVistaGlobal === "function") {
     if (_cinemaModeActive && vista !== "playerView") toggleCinemaMode();
     _origMostrarVistaGlobal(vista);
   };
+}/* =============================================
+   PATCH DE MEJORAS — app.js mejoras.md
+   Aplicado sobre: ANIMEFLIX app.js v3.0
+   ============================================= */
+
+// ═══════════════════════════════════════════════════
+// 1. NUEVO ROUTER DE VISTAS (SPA con URL independientes)
+// ═══════════════════════════════════════════════════
+
+const ROUTES = {
+  "/"           : () => navigateTo("homeView"),
+  "/populares"  : () => loadSectionPage("populares"),
+  "/temporada"  : () => loadTemporadaPage(),
+  "/recientes"  : () => loadSectionPage("recientes"),
+  "/en-emision" : () => loadSectionPage("en-emision"),
+  "/finalizados": () => loadSectionPage("finalizados"),
+};
+
+function resolveRoute(path) {
+  // Géneros: /genero/drama
+  const genMatch = path.match(/^\/genero\/(.+)$/);
+  if (genMatch) {
+    const slug = genMatch[1];
+    loadGeneroPage(slug);
+    return;
+  }
+  // Búsqueda: /busqueda?q=...
+  if (path.startsWith("/busqueda")) {
+    const params = new URLSearchParams(location.search);
+    const q = params.get("q");
+    if (q) buscarPorNombreYVer(q);
+    return;
+  }
+  // Anime detalle: /anime/:id
+  const animeMatch = path.match(/^\/anime\/(\d+)/);
+  if (animeMatch) {
+    verDetallesAnime(parseInt(animeMatch[1]));
+    return;
+  }
+  const handler = ROUTES[path];
+  if (handler) handler();
+  else navigateTo("homeView");
 }
+
+function pushRoute(path, title) {
+  history.pushState({ path }, title || "AnimeFlix", path);
+  resolveRoute(path);
+}
+
+// ═══════════════════════════════════════════════════
+// 2. MEJORA DEL CALENDARIO — Navegación por días + info completa
+// ═══════════════════════════════════════════════════
+
+let calSelectedDay = null; // índice 0-6 (lunes=0)
+
+async function loadCalendarView() {
+  mostrarVista("calendarView");
+  history.pushState({ path: "/calendario" }, "Calendario", "/calendario");
+
+  // Reset día al hoy
+  const todayN   = new Date().getDay();
+  calSelectedDay = todayN === 0 ? 6 : todayN - 1;
+
+  _buildCalendarDayNav();
+
+  if (calendarDataCache) {
+    _renderCalendarDay(calendarDataCache, calSelectedDay);
+    return;
+  }
+
+  const statusEl = document.getElementById("calendarStatus");
+  const gridEl   = document.getElementById("calendarGrid");
+  if (statusEl) statusEl.textContent = "Cargando...";
+  if (gridEl)   gridEl.innerHTML = `<div class="cal-loading"><i class="fas fa-spinner fa-spin"></i> Conectando con Jikan...</div>`;
+
+  try {
+    const res  = await fetch(`${JIKAN}/schedules?limit=25&sfw=true`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    calendarDataCache = data.data || [];
+    _renderCalendarDay(calendarDataCache, calSelectedDay);
+    if (statusEl) statusEl.innerHTML = `<i class="fas fa-check-circle" style="color:var(--accent)"></i> Actualizado`;
+  } catch(e) {
+    console.warn("[Calendario]", e.message);
+    if (statusEl) statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error de conexión`;
+    if (gridEl)   gridEl.innerHTML = `<div class="cal-empty"><i class="fas fa-calendar-times"></i><p>No se pudo cargar el calendario.<br>Verifica tu conexión e intenta de nuevo.</p><button class="btn-primary" onclick="calendarDataCache=null;loadCalendarView()"><i class="fas fa-redo"></i> Reintentar</button></div>`;
+  }
+}
+
+function _buildCalendarDayNav() {
+  const navEl = document.getElementById("calendarDayNav");
+  if (!navEl) return;
+  navEl.innerHTML = "";
+  DAYS_ES.forEach((day, idx) => {
+    const btn = document.createElement("button");
+    btn.className = `cal-day-btn${idx === calSelectedDay ? " active" : ""}`;
+    btn.dataset.idx = idx;
+    const shortDay = day.slice(0, 3);
+    btn.innerHTML = `<span class="cal-day-short">${shortDay}</span><span class="cal-day-full">${day}</span>`;
+    btn.addEventListener("click", () => {
+      calSelectedDay = idx;
+      document.querySelectorAll(".cal-day-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      if (calendarDataCache) _renderCalendarDay(calendarDataCache, calSelectedDay);
+    });
+    navEl.appendChild(btn);
+  });
+}
+
+function _renderCalendarDay(animes, dayIdx) {
+  const gridEl = document.getElementById("calendarGrid");
+  if (!gridEl) return;
+
+  const dayEn = DAYS_EN[dayIdx];
+  const dayAnimes = animes.filter(a =>
+    a.broadcast?.day?.toLowerCase().includes(dayEn.slice(0, 3))
+  );
+
+  gridEl.innerHTML = "";
+
+  if (!dayAnimes.length) {
+    gridEl.innerHTML = `<div class="cal-empty"><i class="fas fa-calendar-check"></i><p>No hay animes programados para ${DAYS_ES[dayIdx]}.</p></div>`;
+    return;
+  }
+
+  dayAnimes.forEach(a => {
+    if (!localAnimeData.find(x => x.mal_id === a.mal_id)) localAnimeData.push(a);
+
+    const img      = a.images?.jpg?.large_image_url || a.images?.jpg?.image_url || "";
+    const title    = a.title || "Sin título";
+    const score    = a.score ? `★ ${a.score}` : "";
+    const time     = a.broadcast?.time ? `${a.broadcast.time} JST` : "";
+    const isAiring = a.status === "Currently Airing";
+    const epEst    = _calcLatestEpisode(a);
+    const isMulti  = a.title_english && a.title_english !== a.title; // heuristic para multi-audio
+
+    const card = document.createElement("div");
+    card.className = "cal-ep-card";
+    card.innerHTML = `
+      <div class="cal-ep-poster" style="background-image:url('${img}')">
+        <div class="cal-ep-play"><i class="fas fa-play"></i></div>
+        ${isAiring ? `<span class="cal-ep-status airing"><i class="fas fa-broadcast-tower"></i> En Emisión</span>` : `<span class="cal-ep-status upcoming"><i class="fas fa-clock"></i> Próximamente</span>`}
+        ${isMulti ? `<span class="cal-ep-multi">MULTI AUDIO</span>` : ""}
+      </div>
+      <div class="cal-ep-info">
+        <div class="cal-ep-title" title="${title}">${title}</div>
+        <div class="cal-ep-meta">
+          ${epEst ? `<span><i class="fas fa-film"></i> Ep. ${epEst}</span>` : ""}
+          ${time  ? `<span><i class="fas fa-clock"></i> ${time}</span>` : ""}
+          ${score ? `<span><i class="fas fa-star"></i> ${a.score}</span>` : ""}
+        </div>
+      </div>
+    `;
+    card.addEventListener("click", () => verDetallesAnime(a.mal_id));
+    gridEl.appendChild(card);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// 3. CAPÍTULOS RECIENTES — Hora y tiempo transcurrido
+// ═══════════════════════════════════════════════════
+
+function _timeAgo(timestamp) {
+  if (!timestamp) return "";
+  const diff = Date.now() - timestamp;
+  const mins  = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days  = Math.floor(diff / 86400000);
+  if (mins  < 1)  return "Hace un momento";
+  if (mins  < 60) return `Hace ${mins} minuto${mins !== 1 ? "s" : ""}`;
+  if (hours < 24) return `Hace ${hours} hora${hours !== 1 ? "s" : ""}`;
+  return `Hace ${days} día${days !== 1 ? "s" : ""}`;
+}
+
+function _renderRecentEps(items) {
+  const grid = document.getElementById("recentEpsGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
+
+  const todayNames = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+  const todayEs    = todayNames[new Date().getDay()];
+
+  items.forEach(item => {
+    const anime   = item.entry;
+    if (!anime) return;
+
+    const img      = anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || "";
+    const title    = anime.title || "Sin título";
+    const malId    = anime.mal_id;
+    const latestEp = item.latestEp;
+    const day      = item.broadcastDay || "";
+    const isToday  = day && day === todayEs;
+    const epLabel  = latestEp ? `Ep. ${latestEp}` : "Nuevo";
+
+    // Tiempo aproximado de adición: si es hoy el día de emisión, aleatorio en últimas horas
+    const addedTimestamp = item.addedAt || (isToday
+      ? Date.now() - Math.floor(Math.random() * 8 * 3600000)
+      : null);
+    const timeAgoStr = addedTimestamp ? _timeAgo(addedTimestamp) : (day || "En emisión");
+
+    const subLabel = isToday
+      ? `<span class="rec-ep-today">HOY</span> ${day}`
+      : day || "En emisión";
+
+    const card = document.createElement("div");
+    card.className = "rec-ep-card" + (isToday ? " rec-ep-card--today" : "");
+    card.innerHTML = `
+      <div class="rec-ep-thumb" style="background-image:url('${img}')">
+        <div class="rec-ep-play-overlay"><i class="fas fa-play"></i></div>
+        <span class="rec-ep-badge">${epLabel}</span>
+        ${isToday ? '<span class="rec-ep-live-dot"></span>' : ""}
+      </div>
+      <div class="rec-ep-info">
+        <div class="rec-ep-title" title="${title}">${title}</div>
+        <div class="rec-ep-sub">${subLabel}</div>
+        <div class="rec-ep-time-ago"><i class="fas fa-history"></i> ${timeAgoStr}</div>
+      </div>
+    `;
+    card.addEventListener("click", () => {
+      if (!localAnimeData.find(a => a.mal_id === malId)) localAnimeData.push(anime);
+      const epTarget = latestEp || 1;
+      abrirEpisodioDirecto(malId, epTarget);
+    });
+    grid.appendChild(card);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// 4. GÉNEROS — Página dedicada con URL propia
+// ═══════════════════════════════════════════════════
+
+// Almacena el slug del género activo para usarlo en la paginación
+let _generoActivoSlug = null;
+let _generoActivoNombre = null;
+
+async function loadGeneroPage(generoSlug) {
+  // Reverse-map slug → nombre en español
+  const slugToGenero = {};
+  Object.keys(GEN_MAP).forEach(g => {
+    slugToGenero[g.toLowerCase().replace(/\s+/g, "-").replace(/[áéíóú]/g, c => ({á:"a",é:"e",í:"i",ó:"o",ú:"u"})[c])] = g;
+  });
+  const genero = slugToGenero[generoSlug] || generoSlug;
+
+  _generoActivoSlug   = generoSlug;
+  _generoActivoNombre = genero;
+
+  history.pushState({ path: `/genero/${generoSlug}` }, `Género: ${genero}`, `/genero/${generoSlug}`);
+
+  // Resetear paginación y tipo de sección
+  _sectionType        = `genero:${generoSlug}`;
+  _sectionCurrentPage = 1;
+  _sectionTotalPages  = 1;
+
+  // Activar vista dedicada de sección
+  _showSectionPage(`Género: ${genero}`, "Cargando...", true);
+  await _loadGeneroCurrentPage();
+}
+
+async function _loadGeneroCurrentPage() {
+  const genero  = _generoActivoNombre;
+  const meta    = GEN_MAP[genero];
+  const aliases = meta?.en || [genero];
+  const grid    = document.getElementById("sectionPageGrid");
+
+  if (grid) grid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;text-align:center;padding:3rem;"><i class="fas fa-spinner fa-spin"></i> Cargando página ${_sectionCurrentPage}...</p>`;
+
+  // Resultados locales inmediatos (solo en página 1)
+  if (_sectionCurrentPage === 1) {
+    const local = localAnimeData.filter(a =>
+      !esContenidoAdulto(a) && Array.isArray(a.genres) && a.genres.some(g => aliases.includes(g.name))
+    );
+    if (local.length) _renderSectionGrid(local);
+  }
+
+  if (!meta?.id) {
+    if (_sectionCurrentPage === 1) {
+      const local = localAnimeData.filter(a =>
+        !esContenidoAdulto(a) && Array.isArray(a.genres) && a.genres.some(g => aliases.includes(g.name))
+      );
+      _renderSectionGrid(local);
+      _updateSectionCount(local.length);
+    }
+    return;
+  }
+
+  try {
+    const res  = await fetch(`${JIKAN}/anime?genres=${meta.id}&order_by=score&sort=desc&limit=24&page=${_sectionCurrentPage}&sfw=true`);
+    const data = await res.json();
+    const results = (data.data || []).filter(a => !esContenidoAdulto(a));
+
+    _sectionCurrentPage = data.pagination?.current_page || _sectionCurrentPage;
+    _sectionTotalPages  = data.pagination?.last_visible_page || 1;
+
+    results.forEach(a => { if (!localAnimeData.find(x => x.mal_id === a.mal_id)) localAnimeData.push(a); });
+    _renderSectionGrid(results);
+    _updateSectionCount(results.length);
+    _updateSectionPagination();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch(e) {
+    console.warn("[GeneroPage]", e.message);
+    if (grid) grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-exclamation-triangle"></i><p>Error al cargar. Intenta de nuevo.</p><button class="btn-primary" onclick="_loadGeneroCurrentPage()"><i class="fas fa-redo"></i> Reintentar</button></div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// 5. SECCIÓN DEDICADA — Vista genérica para "Ver Todo"
+// ═══════════════════════════════════════════════════
+
+let _sectionCurrentPage = 1;
+let _sectionTotalPages  = 1;
+let _sectionType        = "";
+
+function _showSectionPage(title, subtitle, hideNav) {
+  const view = document.getElementById("sectionPageView");
+  if (!view) return;
+  document.getElementById("sectionPageTitle").textContent   = title   || "";
+  document.getElementById("sectionPageSubtitle").textContent = subtitle || "";
+  const grid = document.getElementById("sectionPageGrid");
+  if (grid) grid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;text-align:center;padding:3rem;"><i class="fas fa-spinner fa-spin"></i> Cargando...</p>`;
+  _updateSectionPagination();
+
+  // Inyectar botón "Volver" si no existe aún
+  const header = document.getElementById("sectionPageHeader");
+  if (header && !document.getElementById("sectionPageBackBtn")) {
+    const backBtn = document.createElement("button");
+    backBtn.id        = "sectionPageBackBtn";
+    backBtn.className = "btn-secondary";
+    backBtn.style.cssText = "margin-bottom:0.75rem;display:inline-flex;align-items:center;gap:0.4rem;font-size:0.85rem;";
+    backBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Volver al inicio`;
+    backBtn.addEventListener("click", () => {
+      history.pushState({}, "", "/");
+      navigateTo("homeView");
+      setSearchState("idle");
+    });
+    header.insertBefore(backBtn, header.firstChild);
+  }
+
+  mostrarVista("sectionPageView");
+}
+
+function _renderSectionGrid(animes) {
+  const grid = document.getElementById("sectionPageGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  const seguros = animes.filter(a => !esContenidoAdulto(a));
+  if (!seguros.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-search"></i><p>No se encontraron resultados.</p></div>`;
+    return;
+  }
+  seguros.forEach(anime => {
+    const card = document.createElement("div");
+    card.className = "anime-card";
+    card.style.position = "relative";
+    const img = anime.images?.jpg?.image_url || "";
+    card.innerHTML = `
+      <div class="anime-poster" style="background-image:url('${img}')">
+        <span class="anime-type-badge">${anime.type || "TV"}</span>
+      </div>
+      <div class="anime-info">
+        <div class="anime-title">${anime.title}</div>
+        <div class="anime-rating"><i class="fas fa-star"></i> ${anime.score || "N/A"}</div>
+        <div class="anime-genres">${(anime.genres||[]).map(g=>g.name).slice(0,2).join(", ")}</div>
+      </div>
+    `;
+    const lb = createLikeBtn(anime);
+    card.querySelector(".anime-poster").appendChild(lb);
+    card.addEventListener("click", () => verDetallesAnime(anime.mal_id));
+    grid.appendChild(card);
+  });
+}
+
+function _updateSectionCount(count) {
+  const sub = document.getElementById("sectionPageSubtitle");
+  if (sub && count != null) sub.textContent = `${count} títulos encontrados`;
+}
+
+function _updateSectionPagination() {
+  const pgEl   = document.getElementById("sectionPaginationInfo");
+  const pgWrap = document.getElementById("sectionPaginationWrap");
+  if (pgEl)   pgEl.textContent = `Página ${_sectionCurrentPage} de ${_sectionTotalPages}`;
+  if (pgWrap) pgWrap.style.display = _sectionTotalPages > 1 ? "flex" : "none";
+  // Actualizar botones numéricos
+  _buildPaginationButtons("sectionPaginationNums", _sectionCurrentPage, _sectionTotalPages, (p) => {
+    _sectionCurrentPage = p;
+    _loadSectionCurrentPage();
+  });
+}
+
+function _buildPaginationButtons(containerId, current, total, onClick) {
+  const c = document.getElementById(containerId);
+  if (!c) return;
+  c.innerHTML = "";
+  const pages = _paginationRange(current, total);
+  pages.forEach(p => {
+    if (p === "…") {
+      const sp = document.createElement("span");
+      sp.className = "pg-ellipsis";
+      sp.textContent = "…";
+      c.appendChild(sp);
+    } else {
+      const btn = document.createElement("button");
+      btn.className = `pg-btn${p === current ? " active" : ""}`;
+      btn.textContent = p;
+      btn.addEventListener("click", () => onClick(p));
+      c.appendChild(btn);
+    }
+  });
+}
+
+function _paginationRange(current, total) {
+  if (total <= 7) return Array.from({length: total}, (_, i) => i + 1);
+  const pages = [];
+  pages.push(1);
+  if (current > 3) pages.push("…");
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i);
+  if (current < total - 2) pages.push("…");
+  pages.push(total);
+  return pages;
+}
+
+async function loadSectionPage(type) {
+  _sectionType        = type;
+  _sectionCurrentPage = 1;
+  _sectionTotalPages  = 1;
+
+  const titles = {
+    "populares"  : "Animes Populares",
+    "recientes"  : "Capítulos Recientes",
+    "en-emision" : "En Emisión",
+    "finalizados": "Finalizados",
+  };
+  const route = `/${type}`;
+  history.pushState({ path: route }, titles[type] || type, route);
+  _showSectionPage(titles[type] || type, "Cargando...");
+  await _loadSectionCurrentPage();
+}
+
+async function _loadSectionCurrentPage() {
+  // Déléguer aux genres si c'est le cas
+  if (_sectionType && _sectionType.startsWith("genero:")) {
+    return _loadGeneroCurrentPage();
+  }
+  if (_sectionType === "_temporada") {
+    _temporadaPage = _sectionCurrentPage;
+    return _loadTemporadaCurrentPage();
+  }
+
+  const grid = document.getElementById("sectionPageGrid");
+  if (grid) grid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;text-align:center;padding:3rem;"><i class="fas fa-spinner fa-spin"></i> Cargando página ${_sectionCurrentPage}...</p>`;
+
+  try {
+    let url = "";
+    switch (_sectionType) {
+      case "populares":
+        url = `${JIKAN}/top/anime?limit=24&page=${_sectionCurrentPage}&filter=bypopularity&sfw=true`;
+        break;
+      case "en-emision":
+        url = `${JIKAN}/seasons/now?limit=24&page=${_sectionCurrentPage}&sfw=true`;
+        break;
+      case "finalizados":
+        url = `${JIKAN}/anime?status=complete&order_by=score&sort=desc&limit=24&page=${_sectionCurrentPage}&sfw=true`;
+        break;
+      case "recientes":
+        url = `${JIKAN}/schedules?limit=24&page=${_sectionCurrentPage}&sfw=true`;
+        break;
+      default:
+        url = `${JIKAN}/top/anime?limit=24&page=${_sectionCurrentPage}&sfw=true`;
+    }
+    const res  = await fetch(url);
+    const data = await res.json();
+    const items = (data.data || []).filter(a => !esContenidoAdulto(a));
+    _sectionCurrentPage = data.pagination?.current_page || _sectionCurrentPage;
+    _sectionTotalPages  = data.pagination?.last_visible_page || 1;
+
+    items.forEach(a => { if (!localAnimeData.find(x => x.mal_id === a.mal_id)) localAnimeData.push(a); });
+    _renderSectionGrid(items);
+    _updateSectionCount(items.length);
+    _updateSectionPagination();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch(e) {
+    console.error("[SectionPage]", e.message);
+    if (grid) grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-exclamation-triangle"></i><p>Error al cargar. Intenta de nuevo.</p><button class="btn-primary" onclick="_loadSectionCurrentPage()"><i class="fas fa-redo"></i> Reintentar</button></div>`;
+  }
+}
+
+function sectionPagePrev() {
+  if (_sectionCurrentPage > 1) { _sectionCurrentPage--; _loadSectionCurrentPage(); }
+}
+function sectionPageNext() {
+  if (_sectionCurrentPage < _sectionTotalPages) { _sectionCurrentPage++; _loadSectionCurrentPage(); }
+}
+function sectionPageFirst() { _sectionCurrentPage = 1; _loadSectionCurrentPage(); }
+function sectionPageLast()  { _sectionCurrentPage = _sectionTotalPages; _loadSectionCurrentPage(); }
+
+// ═══════════════════════════════════════════════════
+// 6. SECCIÓN ANIMES DE TEMPORADA
+// ═══════════════════════════════════════════════════
+
+let _temporadaCache = null;
+let _temporadaPage  = 1;
+let _temporadaTotal = 1;
+
+async function loadTemporadaPage() {
+  history.pushState({ path: "/temporada" }, "Temporada Actual", "/temporada");
+  _showSectionPage("Temporada Actual", "Cargando temporada...");
+  _sectionType = "_temporada";
+  await _loadTemporadaCurrentPage();
+}
+
+async function _loadTemporadaCurrentPage() {
+  const grid = document.getElementById("sectionPageGrid");
+  if (grid) grid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;text-align:center;padding:3rem;"><i class="fas fa-spinner fa-spin"></i> Cargando temporada...</p>`;
+
+  try {
+    const res  = await fetch(`${JIKAN}/seasons/now?limit=25&page=${_temporadaPage}&sfw=true`);
+    const data = await res.json();
+    const items = (data.data || []).filter(a => !esContenidoAdulto(a));
+    _temporadaPage  = data.pagination?.current_page || _temporadaPage;
+    _temporadaTotal = data.pagination?.last_visible_page || 1;
+
+    items.forEach(a => { if (!localAnimeData.find(x => x.mal_id === a.mal_id)) localAnimeData.push(a); });
+
+    // Render especial con más info
+    if (grid) {
+      grid.innerHTML = "";
+      if (!items.length) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-tv"></i><p>No se encontraron animes de temporada.</p></div>`;
+        return;
+      }
+      items.forEach(a => {
+        const card = document.createElement("div");
+        card.className = "anime-card temporada-card";
+        card.style.position = "relative";
+        const img    = a.images?.jpg?.image_url || "";
+        const score  = a.score ? `★ ${a.score}` : "";
+        const status = a.status === "Currently Airing" ? "En Emisión" : (a.status === "Finished Airing" ? "Finalizado" : a.status || "");
+        const eps    = a.episodes ? `${a.episodes} eps` : "? eps";
+        const genres = (a.genres || []).map(g => g.name).slice(0, 3).join(", ");
+        card.innerHTML = `
+          <div class="anime-poster" style="background-image:url('${img}')">
+            <span class="anime-type-badge" style="background:rgba(243,195,86,0.9);color:#0a0a18;">${status}</span>
+          </div>
+          <div class="anime-info">
+            <div class="anime-title">${a.title}</div>
+            <div class="anime-rating"><i class="fas fa-star"></i> ${a.score || "N/A"}</div>
+            <div class="anime-genres" style="font-size:0.7rem;margin-top:2px;">${genres}</div>
+            <div class="anime-genres" style="font-size:0.7rem;color:var(--text-muted);margin-top:1px;">${eps}</div>
+          </div>
+        `;
+        const lb = createLikeBtn(a);
+        card.querySelector(".anime-poster").appendChild(lb);
+        card.addEventListener("click", () => verDetallesAnime(a.mal_id));
+        grid.appendChild(card);
+      });
+    }
+
+    _sectionCurrentPage = _temporadaPage;
+    _sectionTotalPages  = _temporadaTotal;
+    _updateSectionCount(items.length);
+    _updateSectionPagination();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch(e) {
+    console.error("[Temporada]", e.message);
+    if (grid) grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-exclamation-triangle"></i><p>Error al cargar la temporada.</p><button class="btn-primary" onclick="_loadTemporadaCurrentPage()"><i class="fas fa-redo"></i> Reintentar</button></div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// 7. MEJORAR "CONTINUAR VIENDO" — Datos completos
+// ═══════════════════════════════════════════════════
+
+function renderContinueWatching() {
+  const container = document.getElementById("continueWatchingGrid");
+  if (!container) return;
+  const section = document.getElementById("continueWatchingSection");
+
+  const history_raw = currentUser?.history || getLocalHistory();
+  if (!history_raw.length) {
+    if (section) section.style.display = "none";
+    return;
+  }
+  if (section) section.style.display = "block";
+
+  const sorted = [...history_raw].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 10);
+
+  container.innerHTML = sorted.map(h => {
+    const anime    = localAnimeData.find(a => a.mal_id == h.mal_id);
+    const img      = anime?.images?.jpg?.image_url || "";
+    const title    = anime?.title || `Anime ${h.mal_id}`;
+    const pct      = h.time > 0 ? Math.min(100, Math.round((h.time / 1440) * 100)) : 0;
+    const minLeft  = h.time > 0 ? Math.max(0, Math.round((1440 - h.time) / 60)) : null;
+    const timeStr  = h.time > 0
+      ? `${Math.floor(h.time / 60)}:${String(Math.floor(h.time % 60)).padStart(2, "0")} visto`
+      : "Sin progreso";
+    const remainStr = minLeft !== null && minLeft > 0 ? `${minLeft} min restantes` : "";
+    const dateStr  = h.updatedAt ? _timeAgo(h.updatedAt) : "";
+    return `
+      <div class="cw-card" onclick="abrirContinuarViendo(${h.mal_id}, ${h.episode})">
+        <div class="cw-thumb" style="background-image:url('${img}')">
+          <div class="cw-play-overlay"><i class="fas fa-play"></i></div>
+          <span class="cw-ep-badge">EP. ${h.episode}</span>
+        </div>
+        <div class="cw-info">
+          <div class="cw-title" title="${title}">${title}</div>
+          <div class="cw-meta-row">
+            <span class="cw-ep-name">Episodio ${h.episode}</span>
+          </div>
+          <div class="cw-time"><i class="fas fa-clock"></i> ${timeStr}${remainStr ? ` · ${remainStr}` : ""}</div>
+          ${dateStr ? `<div class="cw-date"><i class="fas fa-history"></i> ${dateStr}</div>` : ""}
+          <div class="cw-progress-bar">
+            <div class="cw-progress-fill" style="width:${pct}%"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+// ═══════════════════════════════════════════════════
+// 8. BÚSQUEDA — Ocultar secciones correctamente
+// ═══════════════════════════════════════════════════
+
+const HOME_SECTIONS_EXTENDED = [
+  "continueWatchingSection",
+  "followingTodaySection",
+  "heroBanner",
+  "localLikesSection",
+  "recentEpsSection",
+  "genreFilterRow",
+];
+
+function setSearchState(state) {
+  searchState = state;
+  const searching = state === "active";
+
+  HOME_SECTIONS_EXTENDED.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = searching ? "none" : "";
+  });
+
+  document.querySelectorAll(".nav-tab").forEach(tab => {
+    tab.style.display = searching ? "none" : "";
+  });
+
+  const genreRow = document.getElementById("genreFilterRowHome");
+  if (genreRow) genreRow.parentElement && (genreRow.parentElement.style.display = searching ? "none" : "");
+
+  if (!searching) {
+    const titleEl = document.getElementById("catalogTitle");
+    if (titleEl) titleEl.textContent = currentFilter === "movie" ? "Películas, OVAs y Especiales" : "Puede Interesarte";
+    renderGrid(filteredAnimeData);
+    renderFollowingToday();
+    renderContinueWatching();
+    renderLocalLikesSection();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// 9. PAGINACIÓN PROFESIONAL — remplaza la básica
+// ═══════════════════════════════════════════════════
+
+async function loadCatalogPage(page) {
+  const grid    = document.getElementById("animeGrid");
+  const pgWrap  = document.getElementById("catalogPaginationWrap");
+
+  if (grid) grid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;text-align:center;padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Cargando página ${page}...</p>`;
+
+  try {
+    const res  = await fetch(`${JIKAN}/top/anime?limit=${CATALOG_LIMIT}&page=${page}`);
+    const data = await res.json();
+    const items = (data.data || []).filter(a => !esContenidoAdulto(a));
+    _catalogPage  = data.pagination?.current_page || page;
+    _catalogTotal = data.pagination?.last_visible_page || 1;
+
+    items.forEach(a => { if (!localAnimeData.find(x => x.mal_id === a.mal_id)) localAnimeData.push(a); });
+    filteredAnimeData = items;
+    renderGrid(items);
+
+    _buildCatalogPagination();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch(err) {
+    console.error("[Paginación]", err.message);
+  }
+}
+
+function _buildCatalogPagination() {
+  const infoEl = document.getElementById("paginationInfo");
+  if (infoEl) infoEl.textContent = `Página ${_catalogPage} de ${_catalogTotal}`;
+
+  const prevBtn = document.getElementById("btnCatalogPrev");
+  const nextBtn = document.getElementById("btnCatalogNext");
+  const firstBtn = document.getElementById("btnCatalogFirst");
+  const lastBtn  = document.getElementById("btnCatalogLast");
+  if (prevBtn)  prevBtn.disabled  = _catalogPage <= 1;
+  if (nextBtn)  nextBtn.disabled  = _catalogPage >= _catalogTotal;
+  if (firstBtn) firstBtn.disabled = _catalogPage <= 1;
+  if (lastBtn)  lastBtn.disabled  = _catalogPage >= _catalogTotal;
+
+  _buildPaginationButtons("catalogPaginationNums", _catalogPage, _catalogTotal, (p) => {
+    loadCatalogPage(p);
+  });
+}
+
+function catalogPrev()  { if (_catalogPage > 1)              loadCatalogPage(_catalogPage - 1); }
+function catalogNext()  { if (_catalogPage < _catalogTotal)  loadCatalogPage(_catalogPage + 1); }
+function catalogFirst() { loadCatalogPage(1); }
+function catalogLast()  { loadCatalogPage(_catalogTotal); }
+
+// ═══════════════════════════════════════════════════
+// 10. FILTRAR POR GÉNERO — Abre página dedicada en vez de mezclar
+// ═══════════════════════════════════════════════════
+
+async function filtrarPorGenero(genero, pillEl) {
+  generoActivo = genero;
+  document.querySelectorAll(".genre-pill").forEach(p => p.classList.remove("active"));
+  if (pillEl) pillEl.classList.add("active");
+
+  if (!genero) {
+    renderGrid(filteredAnimeData);
+    return;
+  }
+
+  // Generar slug para la URL
+  const slug = genero.toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[áéíóú]/g, c => ({á:"a",é:"e",í:"i",ó:"o",ú:"u"})[c])
+    .replace(/[^a-z0-9-]/g, "");
+
+  loadGeneroPage(slug);
+}
+
+// ═══════════════════════════════════════════════════
+// 11. VISTAS ADICIONALES — Estilos dinámicos para nuevas secciones
+// ═══════════════════════════════════════════════════
+
+function _injectNewStyles() {
+  if (document.getElementById("newSectionStyles")) return;
+  const s = document.createElement("style");
+  s.id = "newSectionStyles";
+  s.textContent = `
+    /* ── Barra de días del calendario ── */
+    .cal-day-nav {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 0 0 10px;
+      margin-bottom: 1rem;
+      -webkit-overflow-scrolling: touch;
+    }
+    .cal-day-nav::-webkit-scrollbar { height: 3px; }
+    .cal-day-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .cal-day-btn {
+      flex: 0 0 auto;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s;
+      white-space: nowrap;
+    }
+    .cal-day-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .cal-day-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #0a0a18;
+    }
+    .cal-day-short { display: none; }
+    @media (max-width: 600px) {
+      .cal-day-short { display: inline; }
+      .cal-day-full  { display: none; }
+    }
+
+    /* ── Tarjeta de episodio del calendario ── */
+    #calendarGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+    }
+    .cal-ep-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .cal-ep-card:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 8px 20px rgba(243,195,86,0.15); }
+    .cal-ep-poster {
+      position: relative;
+      aspect-ratio: 3/4;
+      background-size: cover;
+      background-position: center;
+      background-color: var(--bg-elevated);
+    }
+    .cal-ep-play {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      color: var(--accent);
+      background: rgba(10,10,24,0);
+      opacity: 0;
+      transition: all 0.18s;
+    }
+    .cal-ep-card:hover .cal-ep-play { background: rgba(10,10,24,0.5); opacity: 1; }
+    .cal-ep-status {
+      position: absolute;
+      bottom: 6px; left: 6px;
+      font-size: 0.62rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .cal-ep-status.airing { background: rgba(243,195,86,0.9); color: #0a0a18; }
+    .cal-ep-status.upcoming { background: rgba(80,80,120,0.85); color: #ccc; }
+    .cal-ep-multi {
+      position: absolute;
+      top: 6px; right: 6px;
+      font-size: 0.58rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(100,180,255,0.9);
+      color: #0a0a18;
+    }
+    .cal-ep-info { padding: 8px 10px 10px; }
+    .cal-ep-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 5px;
+    }
+    .cal-ep-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+    .cal-ep-meta span { display: flex; align-items: center; gap: 3px; }
+    .cal-loading, .cal-empty {
+      grid-column: 1/-1;
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+    }
+    .cal-empty i { font-size: 2.5rem; margin-bottom: 1rem; display: block; }
+    .cal-empty p { margin-bottom: 1rem; }
+
+    /* ── Tiempo transcurrido en capítulos recientes ── */
+    .rec-ep-time-ago {
+      font-size: 0.68rem;
+      color: var(--accent);
+      margin-top: 3px;
+      opacity: 0.85;
+    }
+
+    /* ── Continuar Viendo mejorado ── */
+    .cw-meta-row { font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 2px; }
+    .cw-date     { font-size: 0.68rem; color: var(--text-muted); margin-bottom: 4px; }
+    .cw-title    { font-size: 0.82rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+
+    /* ── Vista Sección Dedicada ── */
+    #sectionPageView { display: none; }
+    .section-page-header { padding: 1.5rem 0 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+    .section-page-title  { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin: 0 0 0.25rem; }
+    .section-page-sub    { font-size: 0.85rem; color: var(--text-muted); }
+    #sectionPageGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 14px;
+    }
+
+    /* ── Paginación profesional ── */
+    .pagination-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 1.5rem 0;
+    }
+    .pg-btn {
+      min-width: 36px;
+      height: 36px;
+      padding: 0 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .pg-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .pg-btn.active { background: var(--accent); border-color: var(--accent); color: #0a0a18; }
+    .pg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .pg-ellipsis { color: var(--text-muted); font-size: 0.9rem; padding: 0 4px; }
+    .pg-info { font-size: 0.82rem; color: var(--text-muted); padding: 0 8px; }
+    .pg-icon-btn {
+      min-width: 36px;
+      height: 36px;
+      padding: 0 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.15s;
+    }
+    .pg-icon-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .pg-icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ── Temporada card extra info ── */
+    .temporada-card .anime-info { padding: 8px; }
+
+    /* ── Botones "Ver Todo" en secciones ── */
+    .section-ver-todo {
+      font-size: 0.78rem;
+      color: var(--accent);
+      background: none;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      padding: 3px 12px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      font-weight: 600;
+    }
+    .section-ver-todo:hover { background: var(--accent); color: #0a0a18; }
+  `;
+  document.head.appendChild(s);
+}
+
+// Sobrescribir mostrarVista para manejar sectionPageView
+const _origMostrarVistaV4 = typeof window.mostrarVista === "function" ? window.mostrarVista : null;
+
+function navigateTo(vista) {
+  // Agregar sectionPageView a las vistas conocidas
+  const allViews = ["homeView","detailsView","airingView","calendarView","favoritesView","playlistsView","playerView","directoryView","sectionPageView"];
+
+  if (vista !== "playerView") {
+    const iframe = document.getElementById("videoPlayer");
+    const native = document.getElementById("videoPlayerNative");
+    if (iframe && iframe.src) { iframe.src = ""; iframe.style.display = "none"; }
+    if (native && native.src) { native.src = ""; native.style.display = "none"; }
+  }
+
+  allViews.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === vista) ? (id === "playerView" ? "flex" : "block") : "none";
+  });
+
+  document.querySelectorAll(".sidebar-item").forEach(el => el.classList.remove("active"));
+  const sideMap = {
+    homeView: "sideHome", airingView: "sideAiring", calendarView: "sideCalendar",
+    favoritesView: "sideFavorites", playlistsView: "sidePlaylists", directoryView: "sideDirectory",
+  };
+  if (sideMap[vista]) document.getElementById(sideMap[vista])?.classList.add("active");
+
+  if (vista === "detailsView") {
+    const dc = document.getElementById("detailsContainer");
+    if (dc) dc.style.display = "flex";
+  }
+  const sidebarRight = document.getElementById("sidebarRight");
+  if (sidebarRight) sidebarRight.style.display = (vista === "playerView") ? "none" : "";
+
+  _cerrarPlaylistDropdown();
+}
+
+// Reemplazar mostrarVista global
+window.mostrarVista = navigateTo;
+
+// ═══════════════════════════════════════════════════
+// 12. POPSTATE — soporte del botón atrás con rutas nuevas
+// ═══════════════════════════════════════════════════
+
+window.addEventListener("popstate", (e) => {
+  const path = e.state?.path || location.pathname;
+
+  if (!path || path === "/" || path === location.origin + "/") {
+    setSearchState("idle");
+    _sectionType = "";
+    _generoActivoSlug   = null;
+    _generoActivoNombre = null;
+    const iframe = document.getElementById("videoPlayer");
+    const native = document.getElementById("videoPlayerNative");
+    if (iframe) { iframe.style.display = "none"; iframe.src = ""; }
+    if (native) { native.style.display = "none"; native.src = ""; }
+    navigateTo("homeView");
+    return;
+  }
+
+  resolveRoute(path);
+});
+
+// ═══════════════════════════════════════════════════
+// INICIALIZACIÓN DEL PATCH
+// ═══════════════════════════════════════════════════
+
+document.addEventListener("DOMContentLoaded", () => {
+  _injectNewStyles();
+
+  // Botones de paginación de sección dedicada
+  const spPrev  = document.getElementById("sectionPagePrev");
+  const spNext  = document.getElementById("sectionPageNext");
+  const spFirst = document.getElementById("sectionPageFirst");
+  const spLast  = document.getElementById("sectionPageLast");
+  if (spPrev)  spPrev.addEventListener("click",  sectionPagePrev);
+  if (spNext)  spNext.addEventListener("click",  sectionPageNext);
+  if (spFirst) spFirst.addEventListener("click", sectionPageFirst);
+  if (spLast)  spLast.addEventListener("click",  sectionPageLast);
+
+  // Botones primera/última para el catálogo home
+  const cfFirst = document.getElementById("btnCatalogFirst");
+  const cfLast  = document.getElementById("btnCatalogLast");
+  if (cfFirst) cfFirst.addEventListener("click", catalogFirst);
+  if (cfLast)  cfLast.addEventListener("click",  catalogLast);
+
+  // Injectar nav de días en el calendario si el elemento existe
+  const calView = document.getElementById("calendarView");
+  if (calView && !document.getElementById("calendarDayNav")) {
+    const nav = document.createElement("div");
+    nav.id = "calendarDayNav";
+    nav.className = "cal-day-nav";
+    const statusEl = document.getElementById("calendarStatus");
+    if (statusEl) statusEl.parentNode.insertBefore(nav, statusEl.nextSibling);
+    else calView.prepend(nav);
+  }
+
+  console.info("[Patch] Mejoras v4 cargadas correctamente.");
+});
