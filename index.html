@@ -14,7 +14,7 @@
   <body>
     <!-- ═══════════════════════════════════════════
        HEADER
-  ═══════════════════════════════════════════ -->
+    ═══════════════════════════════════════════ -->
     <header class="header">
       <div class="logo" id="brandLogo">
         <img src="logos/RikAnime - Logo.png" alt="RikAnime" class="main-logo" />
@@ -56,7 +56,7 @@
 
     <!-- ═══════════════════════════════════════════
        LAYOUT PRINCIPAL
-  ═══════════════════════════════════════════ -->
+    ═══════════════════════════════════════════ -->
     <div class="main-container">
       <!-- SIDEBAR LEFT -->
       <aside class="sidebar">
@@ -75,7 +75,6 @@
             ><i class="fas fa-th-list"></i> Directorio</a
           >
         </div>
-        <!-- DESPUÉS -->
         <div class="sidebar-section">
           <h3 class="sidebar-title">Biblioteca</h3>
           <a href="#" class="sidebar-item" id="sideFavorites">
@@ -100,11 +99,12 @@
         </div>
       </aside>
 
-      <!-- VISTA: HOME -->
+      <!-- ═══════════════════════════════════════════
+         VISTA: HOME
+      ═══════════════════════════════════════════ -->
       <main class="content" id="homeView">
         <!-- Hero Banner Dinámico -->
         <div class="hero-section" id="heroBanner">
-          <!-- Los slides se generan por JS -->
           <div class="hero-overlay">
             <div class="hero-content" id="heroContent">
               <span class="hero-badge" id="heroBadge">TOP ANIME</span>
@@ -129,10 +129,10 @@
           <div class="hero-dots" id="heroDots"></div>
         </div>
 
-        <!-- ── Fila de Géneros Interactiva ──────────────────────── -->
+        <!-- Fila de Géneros Interactiva -->
         <div class="genre-filter-row" id="genreFilterRowHome"></div>
 
-        <!-- ── CAPÍTULOS RECIENTES ─────────────────────────────────── -->
+        <!-- Capítulos Recientes -->
         <section class="section recent-eps-section" id="recentEpsSection">
           <div class="section-header">
             <h2 class="section-title">
@@ -148,7 +148,6 @@
             ></span>
           </div>
           <div class="recent-eps-grid" id="recentEpsGrid">
-            <!-- skeletons -->
             <div class="rec-ep-card skeleton">
               <div class="rec-ep-thumb"></div>
               <div class="rec-ep-info">
@@ -187,7 +186,7 @@
           </div>
         </section>
 
-        <!-- ── PREMIUM: Episodios Nuevos de Hoy (Following) ─────── -->
+        <!-- Episodios Nuevos de Hoy (Following) -->
         <section
           id="followingTodaySection"
           style="display: none; margin-bottom: 0.5rem"
@@ -207,7 +206,7 @@
           <div class="anime-grid" id="followingTodayGrid"></div>
         </section>
 
-        <!-- ── PREMIUM: Continuar Viendo ────────────────────────── -->
+        <!-- Continuar Viendo -->
         <section
           id="continueWatchingSection"
           style="display: none; margin-bottom: 0.5rem"
@@ -227,7 +226,7 @@
           ></div>
         </section>
 
-        <!-- ── LIKES LOCALES (sin cuenta) ───────────────────────── -->
+        <!-- Likes Locales -->
         <section
           id="localLikesSection"
           style="display: none; margin-bottom: 0.5rem"
@@ -257,7 +256,6 @@
             ></span>
           </div>
           <div class="anime-grid" id="animeGrid">
-            <!-- Skeletons de carga -->
             <div class="anime-card skeleton">
               <div class="anime-poster"></div>
               <div class="anime-info">
@@ -345,66 +343,72 @@
           </div>
         </section>
 
-        <!-- ── PAGINACIÓN DEL CATÁLOGO ── -->
-        <div class="catalog-pagination" id="catalogPagination">
-          <button
-            class="pag-btn"
-            id="btnCatalogPrev"
-            onclick="catalogPrev()"
-            disabled
-          >
-            <i class="fas fa-chevron-left"></i> Anterior
+        <!-- Paginación profesional del catálogo -->
+        <div class="pagination-wrap" id="catalogPaginationWrap">
+          <button class="pg-icon-btn" id="btnCatalogFirst" disabled>
+            <i class="fas fa-angle-double-left"></i>
           </button>
-          <span class="pag-info" id="paginationInfo">Página 1</span>
-          <button
-            class="pag-btn pag-btn-next"
-            id="btnCatalogNext"
-            onclick="catalogNext()"
-          >
-            Siguiente <i class="fas fa-chevron-right"></i>
+          <button class="pg-icon-btn" id="btnCatalogPrev" disabled>
+            <i class="fas fa-chevron-left"></i>
           </button>
+          <div id="catalogPaginationNums" class="pg-nums"></div>
+          <button class="pg-icon-btn" id="btnCatalogNext" disabled>
+            <i class="fas fa-chevron-right"></i>
+          </button>
+          <button class="pg-icon-btn" id="btnCatalogLast" disabled>
+            <i class="fas fa-angle-double-right"></i>
+          </button>
+          <span class="pg-info" id="paginationInfo">Página 1 de 1</span>
         </div>
       </main>
 
-      <!-- VISTA: EN EMISIÓN -->
+      <!-- ═══════════════════════════════════════════
+         VISTA: EN EMISIÓN
+      ═══════════════════════════════════════════ -->
       <main class="content" id="airingView" style="display: none">
         <div class="section-header" style="margin-bottom: 1.5rem">
           <h2 class="section-title">
             <i
               class="fas fa-satellite-dish"
               style="color: var(--accent); margin-right: 0.5rem"
-            ></i
-            >En Emisión
+            ></i>
+            En Emisión
           </h2>
           <span id="airingStatus" class="status-indicator">Cargando...</span>
         </div>
         <div class="anime-grid" id="airingGrid"></div>
       </main>
 
-      <!-- VISTA: CALENDARIO -->
+      <!-- ═══════════════════════════════════════════
+         VISTA: CALENDARIO
+      ═══════════════════════════════════════════ -->
       <main class="content" id="calendarView" style="display: none">
         <div class="section-header" style="margin-bottom: 1.5rem">
           <h2 class="section-title">
             <i
               class="fas fa-calendar-alt"
               style="color: var(--accent); margin-right: 0.5rem"
-            ></i
-            >Calendario Semanal 2026
+            ></i>
+            Calendario Semanal 2026
           </h2>
           <span id="calendarStatus" class="status-indicator">Cargando...</span>
         </div>
+        <!-- Barra de navegación de días (NUEVO) -->
+        <div class="cal-day-nav" id="calendarDayNav"></div>
         <div class="calendar-grid" id="calendarGrid"></div>
       </main>
 
-      <!-- VISTA: FAVORITOS -->
+      <!-- ═══════════════════════════════════════════
+         VISTA: FAVORITOS
+      ═══════════════════════════════════════════ -->
       <main class="content" id="favoritesView" style="display: none">
         <div class="section-header" style="margin-bottom: 1.5rem">
           <h2 class="section-title">
             <i
               class="fas fa-star"
               style="color: var(--warning); margin-right: 0.5rem"
-            ></i
-            >Mis Favoritos
+            ></i>
+            Mis Favoritos
           </h2>
         </div>
         <div class="fav-grid" id="favGrid">
@@ -418,9 +422,10 @@
         </div>
       </main>
 
-      <!-- VISTA: PLAYLISTS -->
+      <!-- ═══════════════════════════════════════════
+         VISTA: PLAYLISTS
+      ═══════════════════════════════════════════ -->
       <main class="content" id="playlistsView" style="display: none">
-        <!-- Cabecera de la vista (cambia entre índice y contenido de lista) -->
         <div id="plv-index">
           <div class="section-header" style="margin-bottom: 1.5rem">
             <h2 class="section-title">
@@ -438,11 +443,7 @@
               <i class="fas fa-plus"></i> Nueva playlist
             </button>
           </div>
-          <!-- Formulario inline para crear playlist nueva -->
-          <div
-            id="plvCreateForm"
-            style="display: none; margin-bottom: 1.25rem; display: none"
-          >
+          <div id="plvCreateForm" style="display: none; margin-bottom: 1.25rem">
             <div style="display: flex; gap: 0.5rem; max-width: 380px">
               <input
                 type="text"
@@ -470,8 +471,6 @@
           </div>
           <div class="plv-grid" id="plvGrid"></div>
         </div>
-
-        <!-- Sub-vista: contenido de una playlist seleccionada -->
         <div id="plv-detail" style="display: none">
           <div class="section-header" style="margin-bottom: 1.25rem">
             <button
@@ -495,7 +494,77 @@
         </div>
       </main>
 
-      <!-- VISTA: DETALLES -->
+      <!-- ═══════════════════════════════════════════
+         VISTA: PÁGINA DE SECCIÓN (Géneros, Temporada, "Ver Todo")
+      ═══════════════════════════════════════════ -->
+      <main class="content" id="sectionPageView" style="display: none">
+        <div class="section-page-header">
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 1rem;
+              flex-wrap: wrap;
+            "
+          >
+            <button
+              class="btn btn-secondary"
+              id="sectionPageBackBtn"
+              style="font-size: 0.8rem; padding: 0.35rem 0.85rem"
+            >
+              <i class="fas fa-arrow-left"></i> Volver al Inicio
+            </button>
+            <div>
+              <h1
+                class="section-page-title"
+                id="sectionPageTitle"
+                style="margin-bottom: 0.25rem"
+              >
+                Título
+              </h1>
+              <p class="section-page-sub" id="sectionPageSubtitle">
+                Cargando...
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="anime-grid" id="sectionPageGrid">
+          <p
+            style="
+              color: var(--accent);
+              grid-column: 1/-1;
+              text-align: center;
+              padding: 3rem;
+            "
+          >
+            <i class="fas fa-spinner fa-spin"></i> Cargando...
+          </p>
+        </div>
+        <div
+          class="pagination-wrap"
+          id="sectionPaginationWrap"
+          style="display: none"
+        >
+          <button class="pg-icon-btn" id="sectionPageFirst" disabled>
+            <i class="fas fa-angle-double-left"></i>
+          </button>
+          <button class="pg-icon-btn" id="sectionPagePrev" disabled>
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <div id="sectionPaginationNums" class="pg-nums"></div>
+          <button class="pg-icon-btn" id="sectionPageNext" disabled>
+            <i class="fas fa-chevron-right"></i>
+          </button>
+          <button class="pg-icon-btn" id="sectionPageLast" disabled>
+            <i class="fas fa-angle-double-right"></i>
+          </button>
+          <span class="pg-info" id="sectionPaginationInfo">Página 1 de 1</span>
+        </div>
+      </main>
+
+      <!-- ═══════════════════════════════════════════
+         VISTA: DETALLES
+      ═══════════════════════════════════════════ -->
       <main class="content" id="detailsView" style="display: none">
         <button
           class="btn btn-secondary"
@@ -535,10 +604,10 @@
                 "
               ></div>
 
-              <!-- Sección de temporadas relacionadas (precuela / secuela) — se rellena por JS -->
+              <!-- Temporadas relacionadas -->
               <div id="relacionesContainer" style="display: none"></div>
 
-              <!-- ── PERSONAJES ─────────────────────────────────── -->
+              <!-- Personajes -->
               <div
                 id="characterCarouselSection"
                 style="
@@ -608,9 +677,9 @@
               <h2 class="section-title" style="margin-bottom: 0">
                 Opciones de Idioma
               </h2>
-              <span id="statusIndicator" class="status-indicator">
-                <i class="fas fa-satellite-dish"></i> Sincronizando...
-              </span>
+              <span id="statusIndicator" class="status-indicator"
+                ><i class="fas fa-satellite-dish"></i> Sincronizando...</span
+              >
             </div>
 
             <div class="lang-selector">
@@ -648,14 +717,15 @@
                 style="color: var(--text-muted); font-size: 0.85rem"
               ></span>
             </div>
-            <!-- Selector de bloques para animes largos (>50 eps) — se inyecta por JS -->
             <div id="selector-bloques-container"></div>
             <div class="episode-grid" id="episodeGrid"></div>
           </section>
         </div>
       </main>
 
-      <!-- VISTA: REPRODUCTOR (se inserta aquí dentro del main-container) -->
+      <!-- ═══════════════════════════════════════════
+         VISTA: REPRODUCTOR
+      ═══════════════════════════════════════════ -->
       <main
         class="content player-view"
         id="playerView"
@@ -678,7 +748,6 @@
         </div>
 
         <div class="player-layout">
-          <!-- ── COLUMNA PRINCIPAL ── -->
           <div class="player-main-col">
             <div class="player-video-wrap" id="playerVideoWrap">
               <div class="player-video-loader" id="playerLoader">
@@ -721,7 +790,6 @@
               >
                 Siguiente <i class="fas fa-step-forward"></i>
               </button>
-              <!-- Botón Modo Cine — visible junto a navegación de episodios -->
               <button
                 class="cinema-mode-btn"
                 id="cinemaModeBtn"
@@ -740,14 +808,14 @@
                 <div class="player-lang-switch">
                   <button
                     class="lang-btn active"
-                    id="btnSub"
+                    id="btnSubPlayer"
                     onclick="cambiarIdioma('sub')"
                   >
                     <i class="fas fa-closed-captioning"></i> SUB
                   </button>
                   <button
                     class="lang-btn"
-                    id="btnDub"
+                    id="btnDubPlayer"
                     onclick="cambiarIdioma('dub')"
                   >
                     <i class="fas fa-microphone"></i> DUB
@@ -832,7 +900,6 @@
             </div>
           </div>
 
-          <!-- ── SIDEBAR DE EPISODIOS ── -->
           <aside class="player-sidebar" id="playerSidebar">
             <div class="player-sidebar-header">
               <span class="player-sidebar-title">Episodios</span>
@@ -843,9 +910,9 @@
         </div>
       </main>
 
-      <span id="modalTitle" style="display: none"></span>
-
-      <!-- VISTA: DIRECTORIO -->
+      <!-- ═══════════════════════════════════════════
+         VISTA: DIRECTORIO
+      ═══════════════════════════════════════════ -->
       <main class="content" id="directoryView" style="display: none">
         <div class="dir-header-row">
           <h2 class="section-title" style="margin-bottom: 0">
@@ -864,10 +931,8 @@
           </button>
         </div>
 
-        <!-- Panel de filtros -->
         <div class="dir-filter-panel" id="dirFilterPanel">
           <div class="dir-filters-grid">
-            <!-- Ordenar por -->
             <div class="dir-filter-group">
               <label class="dir-filter-label"
                 ><i class="fas fa-sort"></i> Ordenar por</label
@@ -880,7 +945,6 @@
                 <option value="favorites">Favoritos</option>
               </select>
             </div>
-            <!-- Género -->
             <div class="dir-filter-group">
               <label class="dir-filter-label"
                 ><i class="fas fa-tag"></i> Género</label
@@ -904,7 +968,6 @@
                 <option value="18">Mecha</option>
               </select>
             </div>
-            <!-- Letra -->
             <div class="dir-filter-group">
               <label class="dir-filter-label"
                 ><i class="fas fa-font"></i> Letra</label
@@ -940,7 +1003,6 @@
                 <option>Z</option>
               </select>
             </div>
-            <!-- Demografía -->
             <div class="dir-filter-group">
               <label class="dir-filter-label"
                 ><i class="fas fa-users"></i> Demografía</label
@@ -954,7 +1016,6 @@
                 <option value="Kids">Infantil</option>
               </select>
             </div>
-            <!-- Tipo -->
             <div class="dir-filter-group">
               <label class="dir-filter-label"
                 ><i class="fas fa-film"></i> Tipo</label
@@ -969,7 +1030,6 @@
                 <option value="music">Music</option>
               </select>
             </div>
-            <!-- Estado -->
             <div class="dir-filter-group">
               <label class="dir-filter-label"
                 ><i class="fas fa-broadcast-tower"></i> Estado</label
@@ -981,7 +1041,6 @@
                 <option value="upcoming">Próximamente</option>
               </select>
             </div>
-            <!-- Año -->
             <div class="dir-filter-group">
               <label class="dir-filter-label"
                 ><i class="fas fa-calendar"></i> Año</label
@@ -990,7 +1049,6 @@
                 <option value="">Todos</option>
               </select>
             </div>
-            <!-- Temporada -->
             <div class="dir-filter-group">
               <label class="dir-filter-label"
                 ><i class="fas fa-cloud-sun"></i> Temporada</label
@@ -1004,7 +1062,6 @@
               </select>
             </div>
           </div>
-          <!-- Botones de acción -->
           <div class="dir-action-row">
             <button
               class="btn btn-accent dir-filter-btn"
@@ -1028,7 +1085,6 @@
           </div>
         </div>
 
-        <!-- Grid de resultados -->
         <div class="anime-grid" id="dirGrid" style="margin-top: 1.5rem">
           <p
             style="
@@ -1043,6 +1099,8 @@
           </p>
         </div>
       </main>
+
+      <span id="modalTitle" style="display: none"></span>
 
       <!-- SIDEBAR RIGHT -->
       <aside class="sidebar-right" id="sidebarRight">
@@ -1065,7 +1123,7 @@
 
     <!-- ═══════════════════════════════════════════
        SETTINGS MODAL
-  ═══════════════════════════════════════════ -->
+    ═══════════════════════════════════════════ -->
     <div class="modal-overlay" id="settingsModal">
       <div class="modal-box">
         <div class="modal-header">
@@ -1086,7 +1144,6 @@
           </button>
         </div>
         <div class="modal-body">
-          <!-- Tema -->
           <div class="settings-group">
             <div class="settings-label">Apariencia</div>
             <div class="toggle-row">
@@ -1100,8 +1157,6 @@
               </label>
             </div>
           </div>
-
-          <!-- Idioma Reproductor -->
           <div class="settings-group">
             <div class="settings-label">Reproducción</div>
             <div class="toggle-row">
@@ -1115,8 +1170,6 @@
               <option value="dub">Doblaje Latino (DUB)</option>
             </select>
           </div>
-
-          <!-- Servidor preferido -->
           <div class="settings-group">
             <div class="settings-label">Servidor Preferido</div>
             <select class="settings-select" id="preferredServerSelect">
@@ -1132,7 +1185,7 @@
 
     <!-- ═══════════════════════════════════════════
        ACCOUNT MODAL
-  ═══════════════════════════════════════════ -->
+    ═══════════════════════════════════════════ -->
     <div class="modal-overlay" id="accountModal">
       <div class="modal-box" style="max-width: 520px">
         <div class="modal-header">
@@ -1153,7 +1206,6 @@
           </button>
         </div>
 
-        <!-- Tabs sin sesión -->
         <div id="authSection">
           <div class="account-tabs">
             <button
@@ -1167,7 +1219,6 @@
             </button>
           </div>
           <div class="modal-body">
-            <!-- Login -->
             <div class="account-panel active" id="panelLogin">
               <div class="input-group">
                 <label class="input-label">Correo electrónico</label>
@@ -1197,7 +1248,6 @@
                 <i class="fas fa-sign-in-alt"></i> Entrar
               </button>
             </div>
-            <!-- Register -->
             <div class="account-panel" id="panelRegister">
               <div class="input-group">
                 <label class="input-label">Nombre de Usuario</label>
@@ -1240,7 +1290,6 @@
           </div>
         </div>
 
-        <!-- Sección con sesión activa -->
         <div id="userSection" style="display: none">
           <div class="account-tabs">
             <button
@@ -1307,24 +1356,20 @@
     ═══════════════════════════════════════════ -->
     <nav class="mobile-bottom-nav" id="mobileBottomNav">
       <button class="mbn-btn active" id="mbnHome" onclick="mbnGo('home')">
-        <i class="fas fa-home"></i>
-        <span>Inicio</span>
+        <i class="fas fa-home"></i><span>Inicio</span>
       </button>
       <button class="mbn-btn" id="mbnAiring" onclick="mbnGo('airing')">
-        <i class="fas fa-tv"></i>
-        <span>Emisión</span>
+        <i class="fas fa-tv"></i><span>Emisión</span>
       </button>
       <button class="mbn-btn" id="mbnSearch" onclick="mbnToggleSearch()">
-        <i class="fas fa-search"></i>
-        <span>Buscar</span>
+        <i class="fas fa-search"></i><span>Buscar</span>
       </button>
       <button class="mbn-btn" id="mbnMore" onclick="mbnToggleLibrary()">
-        <i class="fas fa-bars"></i>
-        <span>Más</span>
+        <i class="fas fa-bars"></i><span>Más</span>
       </button>
     </nav>
 
-    <!-- Menú "Más" — Biblioteca + extras -->
+    <!-- Menú "Más" móvil -->
     <div class="mobile-library-drawer" id="mobileLibraryDrawer">
       <div class="mld-inner">
         <div class="mld-title">Menú</div>
@@ -1380,7 +1425,7 @@
       </div>
     </div>
 
-    <!-- Buscador móvil (desplegable zona pulgar) -->
+    <!-- Buscador móvil -->
     <div class="mobile-search-drawer" id="mobileSearchDrawer">
       <div class="msd-inner">
         <div class="msd-bar">
@@ -1417,19 +1462,13 @@
       <i class="fas fa-chevron-right"></i>
     </button>
 
-    <!-- Fila de géneros interactiva -->
-    <div
-      id="genreFilterRow"
-      class="genre-filter-row"
-      style="display: none"
-    ></div>
-
-    <!-- Modo Cine: capa oscura sobre todo excepto el video -->
+    <!-- Modo Cine: capa oscura -->
     <div
       class="cinema-overlay"
       id="cinemaOverlay"
       onclick="toggleCinemaMode()"
     ></div>
+
     <script src="app.js"></script>
   </body>
 </html>
