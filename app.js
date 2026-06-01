@@ -10,6 +10,8 @@
 
 "use strict";
 
+
+
 // ─── CONFIGURACIÓN ────────────────────────────
 const API_KEY   = "dev-anime1v-key";
 const BASE_URL  = "https://nextarc-production.up.railway.app/api/v1/anime";
@@ -475,55 +477,87 @@ function getHistoryEntry(malId, epNumber) {
 
 // ─── ABRIR EPISODIO DIRECTO DESDE "CONTINUAR VIENDO" ─────────
 async function abrirContinuarViendo(malId, epNumber) {
-  if (!animeActualMAL || animeActualMAL.mal_id != malId) {
-    await verDetallesAnime(malId);
-    await new Promise(resolve => setTimeout(resolve, 800));
+  // Si el anime ya está en contexto, ir directo
+  if (animeActualMAL && animeActualMAL.mal_id == malId && animeActualBackend) {
+    const epList = animeActualBackend?.episodes ||
+                   animeActualBackend?.list ||
+                   animeActualBackend?.episodeList || [];
+    const epObj = epList.find(e => (e.number || e.episode || e.id) == epNumber);
+    if (epObj) { procesarStreamingEpisodio(epObj); return; }
   }
-
-  const epList = animeActualBackend?.episodes ||
-                 animeActualBackend?.list ||
-                 animeActualBackend?.episodeList || [];
-
-  const epObj = epList.find(e => (e.number || e.episode || e.id) == epNumber);
-
-  if (epObj) {
-    procesarStreamingEpisodio(epObj);
-  } else {
-    const baseUrl = animeActualBackend?.url || "";
-    procesarStreamingEpisodio({
-      number: epNumber,
-      url: baseUrl
-        ? (baseUrl.endsWith("/") ? `${baseUrl}${epNumber}` : `${baseUrl}-${epNumber}`)
-        : `https://mock-provider.com/episode-${epNumber}`,
-    });
-  }
+  // Reutilizar abrirEpisodioDirecto (mismo comportamiento sin flash de detailsView)
+  await abrirEpisodioDirecto(malId, epNumber);
 }
 
 // ─── ABRIR EPISODIO DIRECTO DESDE "CAPÍTULOS RECIENTES" ─────
 async function abrirEpisodioDirecto(malId, epNumber) {
-  // Cargar el anime si no está ya en contexto
-  if (!animeActualMAL || animeActualMAL.mal_id != malId) {
-    await verDetallesAnime(malId);
-    await new Promise(resolve => setTimeout(resolve, 900));
+  // Si el anime ya está en contexto, ir directo al episodio
+  if (animeActualMAL && animeActualMAL.mal_id == malId && animeActualBackend) {
+    const epList = animeActualBackend?.episodes ||
+                   animeActualBackend?.list ||
+                   animeActualBackend?.episodeList || [];
+    const epObj = epList.find(e => (e.number || e.episode || e.id) == epNumber);
+    if (epObj) { procesarStreamingEpisodio(epObj); return; }
   }
 
-  const epList = animeActualBackend?.episodes ||
-                 animeActualBackend?.list ||
-                 animeActualBackend?.episodeList || [];
-
-  const epObj = epList.find(e => (e.number || e.episode || e.id) == epNumber);
-
-  if (epObj) {
-    procesarStreamingEpisodio(epObj);
-  } else {
-    const baseUrl = animeActualBackend?.url || "";
-    procesarStreamingEpisodio({
-      number: epNumber,
-      url: baseUrl
-        ? (baseUrl.endsWith("/") ? `${baseUrl}${epNumber}` : `${baseUrl}-${epNumber}`)
-        : "",
-    });
+  // Asegurar que el anime esté en localAnimeData (puede venir de _recentEpsCache)
+  let anime = localAnimeData.find(a => a.mal_id == malId);
+  if (!anime) {
+    anime = await fetchAnimeById(malId);
+    if (!anime) { showToast("No se pudo cargar el anime", "error"); return; }
   }
+
+  // Setear contexto MAL sin cambiar de vista
+  animeActualMAL     = anime;
+  animeActualBackend = null;
+  esModoDemoActivo   = false;
+  pushUrl(malId, epNumber);
+
+  // Construir el episodio con URL provisional y abrir el player YA
+  const provisionalEp = { number: epNumber, url: "" };
+  procesarStreamingEpisodio(provisionalEp);
+
+  // Cargar datos del backend en segundo plano y actualizar la lista de episodios del sidebar
+  try {
+    const searchRes = await fetch(`${BASE_URL}/search?q=${encodeURIComponent(anime.title)}`, { headers: apiHeaders });
+    if (searchRes.ok) {
+      const r = await searchRes.json();
+      let resultsArray = [];
+      if (r?.success && r.data) resultsArray = Array.isArray(r.data) ? r.data : (r.data.results || []);
+
+      if (resultsArray.length > 0) {
+        const infoRes = await fetch(`${BASE_URL}/info?url=${encodeURIComponent(resultsArray[0].url)}`, { headers: apiHeaders });
+        if (infoRes.ok) {
+          const infoResult = await infoRes.json();
+          if (infoResult?.success && infoResult.data) {
+            animeActualBackend = infoResult.data;
+            try { sessionStorage.setItem(`nextarc_info_${malId}`, JSON.stringify(infoResult.data)); } catch {}
+
+            // Actualizar la URL del episodio en curso si ahora la tenemos
+            const epList = animeActualBackend.episodes || animeActualBackend.list || animeActualBackend.episodeList || [];
+            const epObj  = epList.find(e => (e.number || e.episode || e.id) == epNumber);
+            if (epObj && epObj.url) {
+              // Recargar el episodio con la URL real (ya estamos en playerView)
+              procesarStreamingEpisodio(epObj);
+            }
+            // Reconstruir lista de episodios en el sidebar
+            construirListaEpisodios(epList);
+            return;
+          }
+        }
+      }
+    }
+  } catch(e) {
+    console.warn("[abrirEpisodioDirecto backend]", e.message);
+  }
+
+  // Sin backend: crear lista de episodios de fallback
+  const totalEps = typeof anime.episodes === "number" && anime.episodes > 0 ? anime.episodes : 12;
+  animeActualBackend = {
+    title: anime.title, url: "",
+    episodes: Array.from({ length: totalEps }, (_, i) => ({ number: i + 1, url: "" })),
+  };
+  construirListaEpisodios(animeActualBackend.episodes);
 }
 
 /* [PATCHED v4] function renderContinueWatching() { */
@@ -622,7 +656,7 @@ function pushUrl(animeId, epNumber) {
 }
 
 function clearUrl() {
-  history.pushState({}, "", "/");
+  history.pushState({}, "", location.pathname.split("?")[0] || "/");
 }
 
 // [NUEVO] Fallback de deep linking: obtiene un anime por ID directamente desde Jikan
@@ -1404,7 +1438,7 @@ async function loadAiringView() {
   if (airingDataCache) { renderAiringGrid(airingDataCache); return; }
 
   document.getElementById("airingStatus").textContent = "Cargando desde Jikan...";
-  document.getElementById("airingGrid").innerHTML = `<p style="color:var(--accent);grid-column:1/-1;"><i class="fas fa-spinner fa-spin"></i> Conectando con MyAnimeList...</p>`;
+  document.getElementById("airingGrid").innerHTML = `<p style="color:var(--accent);grid-column:1/-1;"><i class="fas fa-spinner fa-spin"></i> Cargando...</p>`;
 
   try {
     const res  = await fetch(`${JIKAN}/seasons/now?limit=24`);
@@ -1474,7 +1508,7 @@ const DAYS_EN = ["monday","tuesday","wednesday","thursday","friday","saturday","
   if (calendarDataCache) { renderCalendar(calendarDataCache); return; }
 
   document.getElementById("calendarStatus").textContent = "Cargando...";
-  document.getElementById("calendarGrid").innerHTML = `<p style="color:var(--accent);"><i class="fas fa-spinner fa-spin"></i> Conectando con Jikan...</p>`;
+  document.getElementById("calendarGrid").innerHTML = `<p style="color:var(--accent);"><i class="fas fa-spinner fa-spin"></i> Cargando...</p>`;
 
   try {
     const res  = await fetch(`${JIKAN}/schedules`);
@@ -1666,21 +1700,119 @@ async function procesarStreamingEpisodio(episodeObj) {
   }
 
   if (result?.success && result.data) {
-    const lk  = idiomaActual.toLowerCase();
-    const lkU = idiomaActual.toUpperCase();
+    const rawData = result.data;
 
-    servidoresStreamCache   = result.data.servers?.[lk] || result.data.streamLinks?.[lkU] || [];
-    servidoresDownloadCache = result.data.downloadLinks?.[lkU] ||
-      servidoresStreamCache.filter(s => s.url || s.download_url);
+    // ── Detectar TODOS los idiomas disponibles en servers y streamLinks ──
+    const serversObj = rawData.servers || {};
+    const streamObj  = rawData.streamLinks || {};
+    const dlObj      = rawData.downloadLinks || {};
 
-    if (servidoresStreamCache.length || servidoresDownloadCache.length) {
+    // Unificar en un mapa normalizado: { "sub": [...], "lat": [...], "esp": [...], etc. }
+    const allLangs = {};
+    for (const [key, val] of Object.entries(serversObj)) {
+      if (Array.isArray(val) && val.length) allLangs[key.toLowerCase()] = val;
+    }
+    for (const [key, val] of Object.entries(streamObj)) {
+      const k = key.toLowerCase();
+      if (Array.isArray(val) && val.length) allLangs[k] = (allLangs[k] || []).concat(val);
+    }
+
+    // Etiquetas legibles para los idiomas conocidos
+    const LANG_LABELS = {
+      sub: "SUB", dub: "DUB", lat: "Lat.", esp: "Esp.", en: "ENG",
+      "es-la": "Lat.", "es-es": "Esp.", japanese: "JPN", english: "ENG",
+      castellano: "Cast.", latino: "Lat.", subtitulado: "SUB",
+    };
+    const LANG_PRIORITY = ["sub","lat","esp","dub","en","es-la","es-es","castellano","latino","subtitulado","english","japanese"];
+    const availableLangs = [...new Set([
+      ...LANG_PRIORITY.filter(l => allLangs[l]),
+      ...Object.keys(allLangs).filter(l => !LANG_PRIORITY.includes(l)),
+    ])];
+
+    if (availableLangs.length > 0) {
+      // Construir selector de idioma dinámico si hay más de uno
+      _buildLangSelector(availableLangs, allLangs, dlObj, LANG_LABELS);
+      // Seleccionar el idioma activo actual si está disponible, o el primero
+      const langToUse = availableLangs.includes(idiomaActual.toLowerCase())
+        ? idiomaActual.toLowerCase()
+        : availableLangs[0];
+      idiomaActual = langToUse;
+      servidoresStreamCache   = allLangs[langToUse] || [];
+      servidoresDownloadCache = dlObj[langToUse.toUpperCase()] || dlObj[langToUse] ||
+        servidoresStreamCache.filter(s => s.url || s.download_url);
       renderizarBotonesDeServidor(servidoresStreamCache);
       return;
     }
   }
 
-  // Sin servidores en el idioma solicitado
+  // Sin servidores disponibles
   _mostrarMensajeNoDisponible(serverCont, loader);
+}
+
+// ── Constructor del selector de idioma dinámico ──
+function _buildLangSelector(langs, allLangs, dlObj, LANG_LABELS) {
+  // Buscar el contenedor de botones Sub/Dub existente y reemplazarlo con uno dinámico
+  const LANG_LABELS_DEFAULT = {
+    sub: "SUB", dub: "DUB", lat: "Lat.", esp: "Esp.", en: "ENG",
+    "es-la": "Lat.", "es-es": "Esp.", japanese: "JPN", english: "ENG",
+    castellano: "Cast.", latino: "Lat.", subtitulado: "SUB",
+  };
+  const labels = LANG_LABELS || LANG_LABELS_DEFAULT;
+
+  // Quitar selector anterior si existe
+  const existingDyn = document.getElementById("dynLangSelector");
+  if (existingDyn) existingDyn.remove();
+
+  // Insertar nuevo selector junto a los botones Sub/Dub originales
+  const btnSub = document.getElementById("btnSub");
+  const container = btnSub?.parentElement;
+  if (!container) return;
+
+  // Ocultar los botones hardcodeados Sub/Dub originales
+  const btnDub = document.getElementById("btnDub");
+  if (btnSub) btnSub.style.display = "none";
+  if (btnDub) btnDub.style.display = "none";
+
+  const dyn = document.createElement("div");
+  dyn.id = "dynLangSelector";
+  dyn.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;align-items:center;";
+  
+  const labelEl = document.createElement("span");
+  labelEl.style.cssText = "font-size:0.75rem;color:var(--text-muted);margin-right:2px;";
+  labelEl.textContent = "Audio:";
+  dyn.appendChild(labelEl);
+
+  langs.forEach(lang => {
+    const btn = document.createElement("button");
+    btn.className = "btn-lang-dyn" + (lang === idiomaActual.toLowerCase() ? " active" : "");
+    btn.dataset.lang = lang;
+    btn.textContent = labels[lang] || lang.toUpperCase();
+    btn.style.cssText = `
+      padding:4px 12px; border-radius:6px; font-size:0.8rem; font-weight:600; cursor:pointer;
+      border:1px solid var(--border); background:var(--bg-elevated); color:var(--text-secondary);
+      transition:all 0.15s;
+    `;
+    btn.addEventListener("click", () => {
+      idiomaActual = lang;
+      document.querySelectorAll(".btn-lang-dyn").forEach(b => {
+        b.classList.toggle("active", b.dataset.lang === lang);
+        b.style.background = b.dataset.lang === lang ? "var(--accent)" : "var(--bg-elevated)";
+        b.style.color      = b.dataset.lang === lang ? "#0a0a18" : "var(--text-secondary)";
+      });
+      servidoresStreamCache   = allLangs[lang] || [];
+      servidoresDownloadCache = dlObj[lang.toUpperCase()] || dlObj[lang] ||
+        servidoresStreamCache.filter(s => s.url || s.download_url);
+      renderizarBotonesDeServidor(servidoresStreamCache);
+    });
+    // Estilo activo inicial
+    if (lang === idiomaActual.toLowerCase()) {
+      btn.style.background = "var(--accent)";
+      btn.style.color      = "#0a0a18";
+    }
+    dyn.appendChild(btn);
+  });
+
+  container.insertBefore(dyn, btnSub);
 }
 
 // ── Helper: mensaje estético de no disponible ──
@@ -2117,7 +2249,9 @@ async function fetchAniListEpisodes(malId) {
         streamingEpisodes {
           title
           thumbnail
+          url
         }
+        episodes
       }
     }
   `;
@@ -2157,8 +2291,16 @@ async function resolveThumbnail(malId, epNumber, scraperEp, jikanMeta) {
 
   // Nivel 3A: AniList
   const aniEps = await fetchAniListEpisodes(malId);
-  // AniList indexa los episodios en orden, posición 0 = episodio 1
-  const aniEp = aniEps[epNumber - 1];
+  // AniList NO garantiza orden por número. Extraer el número del título del episodio.
+  // Títulos posibles: "Episode 5", "Ep. 5", "5. Title", "Episode 5 - Title"
+  let aniEp = null;
+  for (const ep of aniEps) {
+    if (!ep?.title) continue;
+    const numMatch = ep.title.match(/(?:episode|ep\.?)\s*(\d+)/i) || ep.title.match(/^(\d+)[.\s]/);
+    if (numMatch && parseInt(numMatch[1]) === epNumber) { aniEp = ep; break; }
+  }
+  // Fallback: posición por índice si no se encontró por título
+  if (!aniEp && aniEps[epNumber - 1]?.thumbnail) aniEp = aniEps[epNumber - 1];
   if (aniEp?.thumbnail) return (thumbCache[key] = aniEp.thumbnail);
 
   // Sin imagen — usar degradado
@@ -2609,7 +2751,7 @@ async function verDetallesAnime(animeId) {
   const epGrid    = document.getElementById("episodeGrid");
   const statusInd = document.getElementById("statusIndicator");
 
-  if (epGrid) epGrid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;"><i class="fas fa-spinner fa-spin"></i> Conectando...</p>`;
+  if (epGrid) epGrid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;"><i class="fas fa-spinner fa-spin"></i> Cargando...</p>`;
 
  mostrarVista("detailsView");
 
@@ -3451,6 +3593,22 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ─── Carga inicial + Deep Linking robusto ────
+  // Determinar si hay una ruta especial ANTES de mostrar el home,
+  // para evitar el flash de la vista de inicio cuando se recarga en otro contexto.
+  const _initParams  = new URLSearchParams(location.search);
+  const _initAnimeId = _initParams.get("anime_id");
+  const _initEp      = _initParams.get("ep");
+  const _initGenero  = _initParams.get("g");
+  const _initView    = _initParams.get("view");
+  const _initPath    = location.pathname;
+
+  // Si vamos a cargar algo que no es el home, ocultar todas las vistas
+  // y mostrar solo un spinner hasta que la carga esté lista.
+  const _hasDeepLink = _initAnimeId || _initGenero || _initView ||
+    (_initPath && _initPath !== "/" && _initPath !== "");
+
+  // Anti-flash manejado en <head> del index.html
+
   loadAnime().then(async () => {
     renderFollowingToday();
     renderContinueWatching();
@@ -3458,6 +3616,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const params  = new URLSearchParams(location.search);
     const animeId = params.get("anime_id");
     const epNum   = params.get("ep");
+    const generoG = params.get("g");
+
+    // Deep-link de género: ?g=aventura
+    const viewParam = params.get("view");
+    if (viewParam && !animeId) {
+      switch(viewParam) {
+        case "calendario": loadCalendarView(); return;
+        case "airing":     loadAiringView();  return;
+        case "directorio": loadDirectoryView(); return;
+      }
+    }
+
+    if (generoG && !animeId) {
+      loadGeneroPage(generoG);
+      return;
+    }
 
     if (animeId) {
       // [NUEVO] Deep linking robusto: busca en catálogo local primero,
@@ -3471,31 +3645,28 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (found) {
-          await verDetallesAnime(animeId);
           if (epNum) {
-            setTimeout(() => {
-              const epList = animeActualBackend?.episodes ||
-                             animeActualBackend?.list ||
-                             animeActualBackend?.episodeList || [];
-              const epObj  = epList.find(e => (e.number || e.episode || e.id) == epNum);
-              if (epObj) {
-                procesarStreamingEpisodio(epObj);
-              } else if (epList.length) {
-                const baseUrl = animeActualBackend?.url || "";
-                procesarStreamingEpisodio({
-                  number: epNum,
-                  url: baseUrl
-                    ? (baseUrl.endsWith("/") ? `${baseUrl}${epNum}` : `${baseUrl}-${epNum}`)
-                    : `https://mock-provider.com/episode-${epNum}`,
-                });
-              }
-            }, 600);
+            // Con episodio: ir directo al player sin mostrar detailsView
+            await abrirEpisodioDirecto(animeId, epNum);
+          } else {
+            await verDetallesAnime(animeId);
           }
         } else if (retries > 0) {
           setTimeout(() => tryOpen(retries - 1), 800);
+        } else {
+          // No se encontró el anime — ir al home
+          navigateTo("homeView");
         }
       };
       tryOpen(5);
+    } else {
+      // Sin deep link: mostrar el home normalmente
+      navigateTo("homeView");
+      // Resolver rutas de path distintas a "/" (ej: /populares, /temporada)
+      const path = location.pathname;
+      if (path && path !== "/" && ROUTES[path]) {
+        resolveRoute(path);
+      }
     }
   });
 });
@@ -3624,6 +3795,9 @@ const GENEROS_PRINCIPALES = [
   "Acción","Aventura","Comedia","Drama","Fantasía","Romance",
   "Suspenso","Terror","Ciencia Ficción","Magia","Deportes","Misterio",
   "Slice of Life","Sobrenatural","Psicológico","Isekai",
+  "Mecha","Música","Escolar","Histórico","Artes Marciales",
+  "Parodia","Samurái","Demonio","Espacial","Militar","Vampiro",
+  "Harem","Josei","Seinen","Shounen","Shoujo","Niños",
 ];
 
 let generoActivo = null;
@@ -3632,6 +3806,62 @@ function buildGenreFilter() {
   const row = document.getElementById("genreFilterRowHome");
   if (!row) return;
   row.innerHTML = "";
+
+  // ── Inyectar CSS con alta especificidad para el scroll ──
+  if (!document.getElementById("genreRowScrollStyle")) {
+    const s = document.createElement("style");
+    s.id = "genreRowScrollStyle";
+    s.textContent = `
+      #genreFilterRowHome {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+        gap: 6px !important;
+        padding: 4px 0 10px 0 !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+        -webkit-overflow-scrolling: touch !important;
+        touch-action: pan-x !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        cursor: grab !important;
+      }
+      #genreFilterRowHome::-webkit-scrollbar { display: none !important; }
+      #genreFilterRowHome .genre-pill {
+        flex: 0 0 auto !important;
+        white-space: nowrap !important;
+        touch-action: manipulation !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+      }
+    `;
+    document.head.appendChild(s);
+  }
+
+  // ── Forzar overflow en el contenedor padre — solo width, sin tocar overflow ──
+  if (row.parentElement) {
+    row.parentElement.style.maxWidth = "100%";
+  }
+
+  // ── Drag-to-scroll con mouse (escritorio) ──
+  let _genreIsDown = false, _genreStartX = 0, _genreScrollLeft = 0;
+  row.addEventListener("mousedown", e => {
+    _genreIsDown   = true;
+    _genreStartX   = e.pageX - row.offsetLeft;
+    _genreScrollLeft = row.scrollLeft;
+    row.style.cursor = "grabbing";
+  });
+  row.addEventListener("mouseleave", () => { _genreIsDown = false; row.style.cursor = "grab"; });
+  row.addEventListener("mouseup",    () => { _genreIsDown = false; row.style.cursor = "grab"; });
+  row.addEventListener("mousemove",  e => {
+    if (!_genreIsDown) return;
+    e.preventDefault();
+    const x    = e.pageX - row.offsetLeft;
+    const walk = (x - _genreStartX) * 1.5;
+    row.scrollLeft = _genreScrollLeft - walk;
+  });
 
   // Botón "Todos"
   const all = document.createElement("button");
@@ -3667,6 +3897,24 @@ const GEN_MAP = {
   "Sobrenatural":    { en: ["Supernatural"],         id: 37 },
   "Psicológico":     { en: ["Psychological"],        id: 40 },
   "Isekai":          { en: ["Isekai"],               id: 62 },
+  // Géneros adicionales
+  "Mecha":           { en: ["Mecha"],                id: 18 },
+  "Música":          { en: ["Music"],                id: 19 },
+  "Escolar":         { en: ["School"],               id: 23 },
+  "Histórico":       { en: ["Historical"],           id: 13 },
+  "Artes Marciales": { en: ["Martial Arts"],         id: 17 },
+  "Parodia":         { en: ["Parody"],               id: 20 },
+  "Samurái":         { en: ["Samurai"],              id: 21 },
+  "Demonio":         { en: ["Demons"],               id: 6  },
+  "Espacial":        { en: ["Space"],                id: 29 },
+  "Militar":         { en: ["Military"],             id: 38 },
+  "Vampiro":         { en: ["Vampire"],              id: 32 },
+  "Harem":           { en: ["Harem"],                id: 35 },
+  "Josei":           { en: ["Josei"],                id: 43 },
+  "Seinen":          { en: ["Seinen"],               id: 42 },
+  "Shounen":         { en: ["Shounen"],              id: 27 },
+  "Shoujo":          { en: ["Shoujo"],               id: 25 },
+  "Niños":           { en: ["Kids"],                 id: 15 },
 };
 
 const _genreCache = {}; // genero → resultados ya descargados
@@ -4293,12 +4541,25 @@ const ROUTES = {
 };
 
 function resolveRoute(path) {
-  // Géneros: /genero/drama
+  // Géneros: /genero/drama (legacy) o ?g=drama (nuevo formato seguro)
   const genMatch = path.match(/^\/genero\/(.+)$/);
   if (genMatch) {
-    const slug = genMatch[1];
-    loadGeneroPage(slug);
+    loadGeneroPage(genMatch[1]);
     return;
+  }
+  const gParam = new URLSearchParams(location.search).get("g");
+  if (gParam) {
+    loadGeneroPage(gParam);
+    return;
+  }
+  // Vistas especiales con ?view= (evita 404 en servidores estáticos)
+  const viewParam = new URLSearchParams(location.search).get("view");
+  if (viewParam) {
+    switch(viewParam) {
+      case "calendario": loadCalendarView(); return;
+      case "airing":     loadAiringView();  return;
+      case "directorio": loadDirectoryView(); return;
+    }
   }
   // Búsqueda: /busqueda?q=...
   if (path.startsWith("/busqueda")) {
@@ -4313,6 +4574,9 @@ function resolveRoute(path) {
     verDetallesAnime(parseInt(animeMatch[1]));
     return;
   }
+  // Legacy paths (solo funcionan con servidor que los sirve)
+  const legacyMap = { "/calendario": () => loadCalendarView(), "/airing": () => loadAiringView() };
+  if (legacyMap[path]) { legacyMap[path](); return; }
   const handler = ROUTES[path];
   if (handler) handler();
   else navigateTo("homeView");
@@ -4331,7 +4595,7 @@ let calSelectedDay = null; // índice 0-6 (lunes=0)
 
 async function loadCalendarView() {
   mostrarVista("calendarView");
-  history.pushState({ path: "/calendario" }, "Calendario", "/calendario");
+  history.pushState({ path: "/?view=calendario" }, "Calendario", "?view=calendario");
 
   // Reset día al hoy
   const todayN   = new Date().getDay();
@@ -4347,15 +4611,43 @@ async function loadCalendarView() {
   const statusEl = document.getElementById("calendarStatus");
   const gridEl   = document.getElementById("calendarGrid");
   if (statusEl) statusEl.textContent = "Cargando...";
-  if (gridEl)   gridEl.innerHTML = `<div class="cal-loading"><i class="fas fa-spinner fa-spin"></i> Conectando con Jikan...</div>`;
+  if (gridEl)   gridEl.innerHTML = `<div class="cal-loading"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>`;
 
   try {
-    const res  = await fetch(`${JIKAN}/schedules?limit=25&sfw=true`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    calendarDataCache = data.data || [];
+    // Obtener TODAS las páginas de schedules + seasons/now para cobertura completa
+    // Jikan /schedules devuelve todos los animes en emisión agrupados por día
+    async function _fetchAllPages(baseUrl, maxPages = 5) {
+      const all = [];
+      for (let page = 1; page <= maxPages; page++) {
+        const res = await fetch(`${baseUrl}&page=${page}`);
+        if (!res.ok) break;
+        const d = await res.json();
+        all.push(...(d.data || []));
+        if (!d.pagination?.has_next_page) break;
+        // Respetar rate limit de Jikan
+        await new Promise(r => setTimeout(r, 400));
+      }
+      return all;
+    }
+
+    if (statusEl) statusEl.textContent = "Cargando calendario completo...";
+
+    const [schedData, nowData] = await Promise.all([
+      _fetchAllPages(`${JIKAN}/schedules?sfw=true&limit=25`, 8),
+      _fetchAllPages(`${JIKAN}/seasons/now?sfw=true&limit=25`, 4),
+    ]);
+
+    // Combinar ambas fuentes sin duplicados, priorizando los que tienen broadcast.day
+    const combined = [...schedData, ...nowData];
+    const seen = new Set();
+    calendarDataCache = combined.filter(a => {
+      if (seen.has(a.mal_id)) return false;
+      seen.add(a.mal_id);
+      return !esContenidoAdulto(a) && a.broadcast?.day;
+    });
+
     _renderCalendarDay(calendarDataCache, calSelectedDay);
-    if (statusEl) statusEl.innerHTML = `<i class="fas fa-check-circle" style="color:var(--accent)"></i> Actualizado`;
+    if (statusEl) statusEl.innerHTML = `<i class="fas fa-check-circle" style="color:var(--accent)"></i> ${calendarDataCache.length} series esta temporada`;
   } catch(e) {
     console.warn("[Calendario]", e.message);
     if (statusEl) statusEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error de conexión`;
@@ -4505,22 +4797,29 @@ function _renderRecentEps(items) {
 // 4. GÉNEROS — Página dedicada con URL propia
 // ═══════════════════════════════════════════════════
 
-// Almacena el slug del género activo para usarlo en la paginación
-let _generoActivoSlug = null;
+// Estado de paginación para páginas de género
+let _generoActivoSlug   = null;
 let _generoActivoNombre = null;
 
 async function loadGeneroPage(generoSlug) {
-  // Reverse-map slug → nombre en español
+  // Normaliza una cadena a slug comparable (sin tildes, minúsculas, guiones)
+  function _toSlug(s) {
+    return String(s).toLowerCase()
+      .replace(/[áàäâ]/g, "a").replace(/[éèëê]/g, "e")
+      .replace(/[íìïî]/g, "i").replace(/[óòöô]/g, "o")
+      .replace(/[úùüû]/g, "u").replace(/ñ/g, "n")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  }
+  // Reverse-map slug → nombre en español (case/accent insensitive)
   const slugToGenero = {};
-  Object.keys(GEN_MAP).forEach(g => {
-    slugToGenero[g.toLowerCase().replace(/\s+/g, "-").replace(/[áéíóú]/g, c => ({á:"a",é:"e",í:"i",ó:"o",ú:"u"})[c])] = g;
-  });
-  const genero = slugToGenero[generoSlug] || generoSlug;
+  Object.keys(GEN_MAP).forEach(g => { slugToGenero[_toSlug(g)] = g; });
+  const genero = slugToGenero[_toSlug(generoSlug)] || generoSlug;
 
   _generoActivoSlug   = generoSlug;
   _generoActivoNombre = genero;
 
-  history.pushState({ path: `/genero/${generoSlug}` }, `Género: ${genero}`, `/genero/${generoSlug}`);
+  // Usar query param para que el servidor estático no rompa al recargar
+  history.pushState({ path: `/?g=${generoSlug}` }, `Género: ${genero}`, `?g=${generoSlug}`);
 
   // Resetear paginación y tipo de sección
   _sectionType        = `genero:${generoSlug}`;
@@ -4540,28 +4839,39 @@ async function _loadGeneroCurrentPage() {
 
   if (grid) grid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;text-align:center;padding:3rem;"><i class="fas fa-spinner fa-spin"></i> Cargando página ${_sectionCurrentPage}...</p>`;
 
-  // Resultados locales inmediatos (solo en página 1)
-  if (_sectionCurrentPage === 1) {
+  if (!meta?.id) {
+    // Sin ID de género en Jikan: solo resultados locales
     const local = localAnimeData.filter(a =>
       !esContenidoAdulto(a) && Array.isArray(a.genres) && a.genres.some(g => aliases.includes(g.name))
     );
-    if (local.length) _renderSectionGrid(local);
-  }
-
-  if (!meta?.id) {
-    if (_sectionCurrentPage === 1) {
-      const local = localAnimeData.filter(a =>
-        !esContenidoAdulto(a) && Array.isArray(a.genres) && a.genres.some(g => aliases.includes(g.name))
-      );
-      _renderSectionGrid(local);
-      _updateSectionCount(local.length);
-    }
+    _renderSectionGrid(local);
+    _updateSectionCount(local.length);
     return;
   }
 
   try {
-    const res  = await fetch(`${JIKAN}/anime?genres=${meta.id}&order_by=score&sort=desc&limit=24&page=${_sectionCurrentPage}&sfw=true`);
-    const data = await res.json();
+    // Retry con backoff para manejar 429 Too Many Requests de Jikan
+    let res, data, attempt = 0;
+    const maxAttempts = 4;
+    while (attempt < maxAttempts) {
+      try {
+        res = await fetch(`${JIKAN}/anime?genres=${meta.id}&order_by=score&sort=desc&limit=24&page=${_sectionCurrentPage}&sfw=true`);
+        if (res.status === 429) {
+          const wait = Math.pow(2, attempt) * 1200; // 1.2s, 2.4s, 4.8s...
+          if (grid) grid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;text-align:center;padding:3rem;"><i class="fas fa-spinner fa-spin"></i> Límite de API, reintentando en ${Math.round(wait/1000)}s...</p>`;
+          await new Promise(r => setTimeout(r, wait));
+          attempt++;
+          continue;
+        }
+        data = await res.json();
+        break;
+      } catch(fetchErr) {
+        attempt++;
+        if (attempt >= maxAttempts) throw fetchErr;
+        await new Promise(r => setTimeout(r, 1000 * attempt));
+      }
+    }
+    if (!data) throw new Error("No response after retries");
     const results = (data.data || []).filter(a => !esContenidoAdulto(a));
 
     _sectionCurrentPage = data.pagination?.current_page || _sectionCurrentPage;
@@ -4574,7 +4884,16 @@ async function _loadGeneroCurrentPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   } catch(e) {
     console.warn("[GeneroPage]", e.message);
-    if (grid) grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-exclamation-triangle"></i><p>Error al cargar. Intenta de nuevo.</p><button class="btn-primary" onclick="_loadGeneroCurrentPage()"><i class="fas fa-redo"></i> Reintentar</button></div>`;
+    // Fallback: mostrar lo que haya en memoria local
+    const local = localAnimeData.filter(a =>
+      !esContenidoAdulto(a) && Array.isArray(a.genres) && a.genres.some(g => aliases.includes(g.name))
+    );
+    if (local.length) {
+      _renderSectionGrid(local);
+      _updateSectionCount(local.length);
+    } else {
+      if (grid) grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-exclamation-triangle"></i><p>Error al cargar. Intenta de nuevo.</p><button class="btn-primary" onclick="_loadGeneroCurrentPage()"><i class="fas fa-redo"></i> Reintentar</button></div>`;
+    }
   }
 }
 
@@ -4589,29 +4908,47 @@ let _sectionType        = "";
 function _showSectionPage(title, subtitle, hideNav) {
   const view = document.getElementById("sectionPageView");
   if (!view) return;
-  document.getElementById("sectionPageTitle").textContent   = title   || "";
+  document.getElementById("sectionPageTitle").textContent    = title   || "";
   document.getElementById("sectionPageSubtitle").textContent = subtitle || "";
   const grid = document.getElementById("sectionPageGrid");
   if (grid) grid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;text-align:center;padding:3rem;"><i class="fas fa-spinner fa-spin"></i> Cargando...</p>`;
   _updateSectionPagination();
 
-  // Inyectar botón "Volver" si no existe aún
-  const header = document.getElementById("sectionPageHeader");
-  if (header && !document.getElementById("sectionPageBackBtn")) {
+  // Inyectar/actualizar botón "Volver al inicio"
+  // Buscar el header por varias estrategias para ser robusto ante distintos HTML
+  const header = document.getElementById("sectionPageHeader")
+    || document.querySelector("#sectionPageView .section-page-header")
+    || document.getElementById("sectionPageView");
+  if (header) {
+    const existing = document.getElementById("sectionPageBackBtn");
+    if (existing) existing.remove();
     const backBtn = document.createElement("button");
-    backBtn.id        = "sectionPageBackBtn";
+    backBtn.id = "sectionPageBackBtn";
     backBtn.className = "btn-secondary";
-    backBtn.style.cssText = "margin-bottom:0.75rem;display:inline-flex;align-items:center;gap:0.4rem;font-size:0.85rem;";
-    backBtn.innerHTML = `<i class="fas fa-arrow-left"></i> Volver al inicio`;
-    backBtn.addEventListener("click", () => {
-      history.pushState({}, "", "/");
-      navigateTo("homeView");
+    backBtn.style.cssText = "margin-bottom:0.75rem;display:inline-flex;align-items:center;gap:0.4rem;font-size:0.85rem;cursor:pointer;border:1px solid var(--border);background:var(--bg-elevated);color:var(--text-primary);padding:6px 14px;border-radius:8px;";
+    backBtn.innerHTML = '<i class="fas fa-arrow-left"></i> Volver al inicio';
+    backBtn.addEventListener("click", function() {
+      _sectionType        = "";
+      _generoActivoSlug   = null;
+      _generoActivoNombre = null;
+      history.pushState({ path: "/" }, "RikAnime", location.pathname.split("?")[0] || "/");
       setSearchState("idle");
+      navigateTo("homeView");
     });
     header.insertBefore(backBtn, header.firstChild);
   }
 
-  mostrarVista("sectionPageView");
+  // Mostrar la vista solo si no estamos ya en ella (evita flash)
+  const currentView = document.getElementById("sectionPageView");
+  if (!currentView || currentView.style.display === "none") {
+    mostrarVista("sectionPageView");
+  } else {
+    // Ya visible: solo asegurarse que las otras vistas estén ocultas
+    ["homeView","detailsView","airingView","calendarView","favoritesView","playlistsView","playerView","directoryView"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
+  }
 }
 
 function _renderSectionGrid(animes) {
@@ -4712,7 +5049,7 @@ async function loadSectionPage(type) {
 }
 
 async function _loadSectionCurrentPage() {
-  // Déléguer aux genres si c'est le cas
+  // Delegar a loader de géneros si corresponde
   if (_sectionType && _sectionType.startsWith("genero:")) {
     return _loadGeneroCurrentPage();
   }
@@ -5223,6 +5560,9 @@ function _injectNewStyles() {
 const _origMostrarVistaV4 = typeof window.mostrarVista === "function" ? window.mostrarVista : null;
 
 function navigateTo(vista) {
+  // Quitar el anti-flash si existe
+  if (window._removeAntiFlash) { window._removeAntiFlash(); window._removeAntiFlash = null; }
+
   // Agregar sectionPageView a las vistas conocidas
   const allViews = ["homeView","detailsView","airingView","calendarView","favoritesView","playlistsView","playerView","directoryView","sectionPageView"];
 
@@ -5263,11 +5603,20 @@ window.mostrarVista = navigateTo;
 // ═══════════════════════════════════════════════════
 
 window.addEventListener("popstate", (e) => {
-  const path = e.state?.path || location.pathname;
+  const path   = e.state?.path || location.pathname;
+  const gParam = new URLSearchParams(location.search).get("g");
 
-  if (!path || path === "/" || path === location.origin + "/") {
+  // Si hay un género en la URL actual, cargarlo
+  if (gParam) {
+    loadGeneroPage(gParam);
+    return;
+  }
+
+  // Si volvemos al inicio (sin query params y sin sub-ruta)
+  const isHome = !location.search && (!location.pathname || location.pathname === "/" || location.pathname === location.origin + "/");
+  if (isHome) {
     setSearchState("idle");
-    _sectionType = "";
+    _sectionType        = "";
     _generoActivoSlug   = null;
     _generoActivoNombre = null;
     const iframe = document.getElementById("videoPlayer");
