@@ -10,6 +10,22 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
     />
     <link rel="stylesheet" href="style.css" />
+    <!-- Anti-flash: si hay deep link, ocultar homeView hasta que la sección correcta cargue -->
+    <script>
+      (function () {
+        var p = new URLSearchParams(location.search);
+        if (p.get("anime_id") || p.get("g") || p.get("view") || p.get("ep")) {
+          var s = document.createElement("style");
+          s.id = "rik-anti-flash";
+          s.textContent = "#homeView{display:none!important}";
+          document.head.appendChild(s);
+          window._removeAntiFlash = function () {
+            var el = document.getElementById("rik-anti-flash");
+            if (el) el.parentNode.removeChild(el);
+          };
+        }
+      })();
+    </script>
   </head>
   <body>
     <!-- ═══════════════════════════════════════════
