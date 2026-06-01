@@ -5271,3 +5271,17 @@ body.cinema-mode .player-video-wrap {
     width: 100%;
   }
 }
+
+/* ── CONTROL DE VISTAS: por defecto solo homeView es visible ──────────────────
+   Esto elimina el flash al recargar en cualquier sección con deep link.
+   El JS sobreescribe display con el valor correcto al navegar. */
+#detailsView,
+#airingView,
+#calendarView,
+#favoritesView,
+#playlistsView,
+#playerView,
+#directoryView,
+#sectionPageView {
+  display: none;
+}
