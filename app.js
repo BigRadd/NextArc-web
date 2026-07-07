@@ -2923,8 +2923,12 @@ async function buscarPorNombreYVer(nombre) {
   }
 
   try {
-    const res  = await fetch(`${JIKAN}/anime?q=${encodeURIComponent(query)}`);
-    const data = await res.json();
+    const res = await fetch(
+  `${BASE_URL}/search?q=${encodeURIComponent(query)}&domain=animeav1.com`,
+  { headers: apiHeaders }
+);
+const data = await res.json();
+const seguros = (data?.data?.results || data?.data || []).filter(a => !esContenidoAdulto(a));
 
     if (data.data?.length) {
       const seguros = data.data.filter(a => !esContenidoAdulto(a));
