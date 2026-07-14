@@ -15,9 +15,8 @@
 // ─── CONFIGURACIÓN ────────────────────────────
 const API_KEY   = "dev-anime1v-key";
 const BASE_URL  = "https://rikanime.onrender.com/api/v1/anime";
-const USERS_URL = "https://rikanime.onrender.com/api/users";
-const JIKAN     = "https://api.jikan.moe/v4"; // original, no usar directo
-const JIKAN_PROXY = `${BASE_URL}/jikan`; // proxy via Render
+const USERS_URL = "https://nextarc-production.up.railway.app/api/users";
+const JIKAN     = "https://api.jikan.moe/v4";
 const ANILIST   = "https://graphql.anilist.co";
 
 const apiHeaders = {
@@ -664,7 +663,7 @@ function clearUrl() {
 // cuando NO está en el catálogo local (p. ej. URL compartida de búsqueda)
 async function fetchAnimeById(malId) {
   try {
-    const res  = await fetch(`${JIKAN_PROXY}/anime/${malId}`, { headers: apiHeaders });
+    const res  = await fetch(`${JIKAN}/anime/${malId}`);
     const data = await res.json();
     if (data.data) {
       // Registrar en catálogo local para que el resto de la app pueda usarlo
@@ -1305,12 +1304,12 @@ function esContenidoAdulto(anime) {
 
 // Fuentes rotativas para el catálogo y el hero
 const HERO_SOURCES = [
-  `${JIKAN_PROXY}/top/anime?limit=25&filter=airing`,
-  `${JIKAN_PROXY}/top/anime?limit=25&filter=bypopularity`,
-  `${JIKAN_PROXY}/top/anime?limit=25&filter=favorite`,
-  `${JIKAN_PROXY}/seasons/now?limit=25`,
-  `${JIKAN_PROXY}/top/anime?limit=25&page=2`,
-  `${JIKAN_PROXY}/top/anime?limit=25&page=3`,
+  `${JIKAN}/top/anime?limit=25&filter=airing`,
+  `${JIKAN}/top/anime?limit=25&filter=bypopularity`,
+  `${JIKAN}/top/anime?limit=25&filter=favorite`,
+  `${JIKAN}/seasons/now?limit=25`,
+  `${JIKAN}/top/anime?limit=25&page=2`,
+  `${JIKAN}/top/anime?limit=25&page=3`,
 ];
 
 function _heroSourceIndex() {
@@ -1326,7 +1325,7 @@ function _heroSourceIndex() {
 async function loadAnime() {
   try {
     // Fuente principal del catálogo (siempre top para el grid)
-    const resMain = await fetch(`${JIKAN_PROXY}/top/anime?limit=24`, { headers: apiHeaders });
+    const resMain = await fetch(`${JIKAN}/top/anime?limit=24`);
     const dataMain = await resMain.json();
     localAnimeData    = (dataMain.data || []).filter(a => !esContenidoAdulto(a));
     filteredAnimeData = localAnimeData;
@@ -1442,7 +1441,7 @@ async function loadAiringView() {
   document.getElementById("airingGrid").innerHTML = `<p style="color:var(--accent);grid-column:1/-1;"><i class="fas fa-spinner fa-spin"></i> Cargando...</p>`;
 
   try {
-    const res  = await fetch(`${JIKAN_PROXY}/seasons/now?limit=24`, { headers: apiHeaders });
+    const res  = await fetch(`${JIKAN}/seasons/now?limit=24`);
     const data = await res.json();
     airingDataCache = data.data || [];
     renderAiringGrid(airingDataCache);
@@ -1483,7 +1482,7 @@ async function loadSidebarAiring() {
   const list = document.getElementById("sidebarAiringList");
   if (!list) return;
   try {
-    const res  = await fetch(`${JIKAN_PROXY}/seasons/now?limit=8`, { headers: apiHeaders });
+    const res  = await fetch(`${JIKAN}/seasons/now?limit=8`);
     const data = await res.json();
     const animes = (data.data || []).slice(0, 6);
     list.innerHTML = animes.map(a => `
@@ -1512,7 +1511,7 @@ const DAYS_EN = ["monday","tuesday","wednesday","thursday","friday","saturday","
   document.getElementById("calendarGrid").innerHTML = `<p style="color:var(--accent);"><i class="fas fa-spinner fa-spin"></i> Cargando...</p>`;
 
   try {
-    const res  = await fetch(`${JIKAN_PROXY}/schedules`, { headers: apiHeaders });
+    const res  = await fetch(`${JIKAN}/schedules`);
     const data = await res.json();
     calendarDataCache = data.data || [];
     renderCalendar(calendarDataCache);
@@ -1945,7 +1944,7 @@ function cargarEnPlayer(url) {
 // ─── [NUEVO] PERSONAJES (JIKAN) ─────────────────────
 async function fetchCharacters(malId) {
   try {
-    const res  = await fetch(`${JIKAN_PROXY}/anime/${malId}/characters`, { headers: apiHeaders });
+    const res  = await fetch(`${JIKAN}/anime/${malId}/characters`);
     const data = await res.json();
     return (data.data || []).filter(c => c.role === "Main").slice(0, 10);
   } catch(e) {
@@ -2634,7 +2633,7 @@ let jikanEpisodesCache = {};
 async function fetchJikanEpisodes(animeId) {
   if (jikanEpisodesCache[animeId]) return jikanEpisodesCache[animeId];
   try {
-    const res  = await fetch(`${JIKAN_PROXY}/anime/${animeId}/episodes`, { headers: apiHeaders });
+    const res  = await fetch(`${JIKAN}/anime/${animeId}/episodes`);
     const data = await res.json();
     jikanEpisodesCache[animeId] = data.data || [];
   } catch(e) {
@@ -3959,8 +3958,8 @@ const _genreCache = {}; // genero → resultados ya descargados
 
   try {
     const [p1, p2] = await Promise.all([
-      fetch(`${JIKAN_PROXY}/anime?genres=${meta.id}&order_by=score&sort=desc&limit=25&page=1`, { headers: apiHeaders }).then(r => r.json()),
-      fetch(`${JIKAN_PROXY}/anime?genres=${meta.id}&order_by=score&sort=desc&limit=25&page=2`, { headers: apiHeaders }).then(r => r.json()),
+      fetch(`${JIKAN}/anime?genres=${meta.id}&order_by=score&sort=desc&limit=25&page=1`).then(r => r.json()),
+      fetch(`${JIKAN}/anime?genres=${meta.id}&order_by=score&sort=desc&limit=25&page=2`).then(r => r.json()),
     ]);
 
     const nuevos = [...(p1.data || []), ...(p2.data || [])]
@@ -4012,7 +4011,7 @@ const CATALOG_LIMIT = 24;
   </p>`;
 
   try {
-    const res  = await fetch(`${JIKAN_PROXY}/top/anime?limit=${CATALOG_LIMIT}&page=${page}`, { headers: apiHeaders });
+    const res  = await fetch(`${JIKAN}/top/anime?limit=${CATALOG_LIMIT}&page=${page}`);
     const data = await res.json();
 
     const items = (data.data || []).filter(a => !esContenidoAdulto(a));
@@ -4117,11 +4116,11 @@ async function applyDirectoryFilters() {
   if (year)     params.set("start_date", `${year}-01-01`);
 
   // Si hay temporada + año, usar /seasons endpoint
-  let url = `${JIKAN_PROXY}/anime?${params.toString()}`;
+  let url = `${JIKAN}/anime?${params.toString()}`;
   if (season && year) {
-    url = `${JIKAN_PROXY}/seasons/${year}/${season}?limit=24&sfw=true`;
+    url = `${JIKAN}/seasons/${year}/${season}?limit=24&sfw=true`;
   } else if (season) {
-    url = `${JIKAN_PROXY}/seasons/now?limit=24&sfw=true`;
+    url = `${JIKAN}/seasons/now?limit=24&sfw=true`;
   }
 
   try {
@@ -4377,7 +4376,7 @@ async function loadRecentEpisodes() {
     // /schedules devuelve SOLO animes Currently Airing, ordenados por día de emisión.
     // Pedimos los primeros 25 (semanal) y tomamos los 15 con fecha de inicio más reciente
     // → son los más "nuevos" de la temporada actual, garantizando episodios actuales.
-    const res  = await fetch(`${JIKAN_PROXY}/schedules?limit=25&sfw=true`, { headers: apiHeaders });
+    const res  = await fetch(`${JIKAN}/schedules?limit=25&sfw=true`);
     const data = await res.json();
 
     let animes = (data.data || [])
@@ -4392,7 +4391,7 @@ async function loadRecentEpisodes() {
 
     // Si schedules devuelve poco, complementar con seasons/now
     if (animes.length < 8) {
-      const res2  = await fetch(`${JIKAN_PROXY}/seasons/now?limit=20&sfw=true`, { headers: apiHeaders });
+      const res2  = await fetch(`${JIKAN}/seasons/now?limit=20&sfw=true`);
       const data2 = await res2.json();
       const extra = (data2.data || [])
         .filter(a => a.airing === true && !esContenidoAdulto(a) && !animes.find(x => x.mal_id === a.mal_id))
@@ -4638,8 +4637,8 @@ async function loadCalendarView() {
     if (statusEl) statusEl.textContent = "Cargando calendario completo...";
 
     const [schedData, nowData] = await Promise.all([
-      _fetchAllPages(`${JIKAN_PROXY}/schedules?sfw=true&limit=25`, 8),
-      _fetchAllPages(`${JIKAN_PROXY}/seasons/now?sfw=true&limit=25`, 4),
+      _fetchAllPages(`${JIKAN}/schedules?sfw=true&limit=25`, 8),
+      _fetchAllPages(`${JIKAN}/seasons/now?sfw=true&limit=25`, 4),
     ]);
 
     // Combinar ambas fuentes sin duplicados, priorizando los que tienen broadcast.day
@@ -4860,7 +4859,7 @@ async function _loadGeneroCurrentPage() {
     const maxAttempts = 4;
     while (attempt < maxAttempts) {
       try {
-        res = await fetch(`${JIKAN_PROXY}/anime?genres=${meta.id}&order_by=score&sort=desc&limit=24&page=${_sectionCurrentPage}&sfw=true`, { headers: apiHeaders });
+        res = await fetch(`${JIKAN}/anime?genres=${meta.id}&order_by=score&sort=desc&limit=24&page=${_sectionCurrentPage}&sfw=true`);
         if (res.status === 429) {
           const wait = Math.pow(2, attempt) * 1200; // 1.2s, 2.4s, 4.8s...
           if (grid) grid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;text-align:center;padding:3rem;"><i class="fas fa-spinner fa-spin"></i> Límite de API, reintentando en ${Math.round(wait/1000)}s...</p>`;
@@ -5070,19 +5069,19 @@ async function _loadSectionCurrentPage() {
     let url = "";
     switch (_sectionType) {
       case "populares":
-        url = `${JIKAN_PROXY}/top/anime?limit=24&page=${_sectionCurrentPage}&filter=bypopularity&sfw=true`;
+        url = `${JIKAN}/top/anime?limit=24&page=${_sectionCurrentPage}&filter=bypopularity&sfw=true`;
         break;
       case "en-emision":
-        url = `${JIKAN_PROXY}/seasons/now?limit=24&page=${_sectionCurrentPage}&sfw=true`;
+        url = `${JIKAN}/seasons/now?limit=24&page=${_sectionCurrentPage}&sfw=true`;
         break;
       case "finalizados":
-        url = `${JIKAN_PROXY}/anime?status=complete&order_by=score&sort=desc&limit=24&page=${_sectionCurrentPage}&sfw=true`;
+        url = `${JIKAN}/anime?status=complete&order_by=score&sort=desc&limit=24&page=${_sectionCurrentPage}&sfw=true`;
         break;
       case "recientes":
-        url = `${JIKAN_PROXY}/schedules?limit=24&page=${_sectionCurrentPage}&sfw=true`;
+        url = `${JIKAN}/schedules?limit=24&page=${_sectionCurrentPage}&sfw=true`;
         break;
       default:
-        url = `${JIKAN_PROXY}/top/anime?limit=24&page=${_sectionCurrentPage}&sfw=true`;
+        url = `${JIKAN}/top/anime?limit=24&page=${_sectionCurrentPage}&sfw=true`;
     }
     const res  = await fetch(url);
     const data = await res.json();
@@ -5130,7 +5129,7 @@ async function _loadTemporadaCurrentPage() {
   if (grid) grid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;text-align:center;padding:3rem;"><i class="fas fa-spinner fa-spin"></i> Cargando temporada...</p>`;
 
   try {
-    const res  = await fetch(`${JIKAN_PROXY}/seasons/now?limit=25&page=${_temporadaPage}&sfw=true`, { headers: apiHeaders });
+    const res  = await fetch(`${JIKAN}/seasons/now?limit=25&page=${_temporadaPage}&sfw=true`);
     const data = await res.json();
     const items = (data.data || []).filter(a => !esContenidoAdulto(a));
     _temporadaPage  = data.pagination?.current_page || _temporadaPage;
@@ -5285,7 +5284,7 @@ async function loadCatalogPage(page) {
   if (grid) grid.innerHTML = `<p style="color:var(--accent);grid-column:1/-1;text-align:center;padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Cargando página ${page}...</p>`;
 
   try {
-    const res  = await fetch(`${JIKAN_PROXY}/top/anime?limit=${CATALOG_LIMIT}&page=${page}`, { headers: apiHeaders });
+    const res  = await fetch(`${JIKAN}/top/anime?limit=${CATALOG_LIMIT}&page=${page}`);
     const data = await res.json();
     const items = (data.data || []).filter(a => !esContenidoAdulto(a));
     _catalogPage  = data.pagination?.current_page || page;
