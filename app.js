@@ -2924,12 +2924,8 @@ async function buscarPorNombreYVer(nombre) {
   }
 
   try {
-    const res = await fetch(
-  `${BASE_URL}/search?q=${encodeURIComponent(query)}&domain=animeav1.com`,
-  { headers: apiHeaders }
-);
-const data = await res.json();
-const seguros = (data?.data?.results || data?.data || []).filter(a => !esContenidoAdulto(a));
+    const res  = await fetch(`${JIKAN_PROXY}/search?q=${encodeURIComponent(query)}&sfw=true`);
+    const data = await res.json();
 
     if (data.data?.length) {
       const seguros = data.data.filter(a => !esContenidoAdulto(a));
@@ -2943,7 +2939,7 @@ const seguros = (data?.data?.results || data?.data || []).filter(a => !esConteni
       searchCache.set(query, seguros);
       setTimeout(() => searchCache.delete(query), 5 * 60 * 1000);
 
-      document.getElementById("catalogTitle").textContent = `Resultados para: "${query}"`;
+      document.getElementById("catalogTitle").textContent = `Resultados para: "${query}" — ${seguros.length} resultados`;
       renderGrid(seguros);
     } else if (!localResults.length) {
       showToast("No se encontraron resultados", "error");
